@@ -1,0 +1,20 @@
+{
+  "name": "permagame",
+  "version": "0.0.0",
+  "authors": [
+    "Michael Dougherty <maackle.d@gmail.com>"
+  ],
+  "license": "MIT",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "jquery": "~2.0.3",
+    "d3": "~3.3.11"
+  }
+}
