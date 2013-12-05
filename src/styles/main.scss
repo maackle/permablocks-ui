@@ -13,3 +13,12 @@ html, body {
 	right: 0;
 	top: 0;
 }
+
+.socket {
+	&.input {
+		fill: red;
+	}
+	&.output {
+		fill: blue;
+	}
+}

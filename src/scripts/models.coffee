@@ -1,15 +1,14 @@
 
 class Substance
 
-	constructor: ->
-		{ @name, } = arguments
+	constructor: (o) ->
+		{ @name, } = o
 
 
 class Process
 
-	constructor: ->
-		{ @name, @inputs, @outputs} = arguments
-
+	constructor: (o) ->
+		{ @name, @inputs, @outputs} = o
 
 
 class Node
@@ -17,6 +16,5 @@ class Node
 	position: null
 
 	constructor: (o)->
-		console.log o
 		{ @process, @position } = o
 
