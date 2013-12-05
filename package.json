@@ -1,19 +1,19 @@
 {
-  "name": "starstalk",
+  "name": "permablocks",
   "version": "0.0.0",
-  "description": "starstalk =========",
+  "description": "permablocks =========",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/maackle/starstalk.git"
+    "url": "git://github.com/maackle/permablocks.git"
   },
   "author": "",
   "license": "BSD",
   "bugs": {
-    "url": "https://github.com/maackle/starstalk/issues"
+    "url": "https://github.com/maackle/permablocks/issues"
   },
   "devDependencies": {
     "grunt-notify": "~0.2.13",

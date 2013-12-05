@@ -27,7 +27,11 @@ module.exports = (grunt) ->
             compile:
                 files:
                     "<%= config.dist %>/main.js": [
-                        "<%= config.app %>/scripts/*.coffee",
+                        "<%= config.app %>/scripts/util.coffee",
+                        "<%= config.app %>/scripts/models.coffee",
+                        "<%= config.app %>/scripts/views.coffee",
+                        "<%= config.app %>/scripts/graph.coffee",
+                        "<%= config.app %>/scripts/main.coffee",
                     ]
 
         compass:

@@ -1,14 +1,26 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>permagame</title>
+	<title>permablocks</title>
+
 	<link rel="stylesheet" type="text/css" href="assets/styles/main.css">
+
 	<script type="text/javascript" src="assets/bower_components/jquery/jquery.js"></script>
+	<script type="text/javascript" src="assets/bower_components/d3/d3.js"></script>
+	<script type="text/javascript" src="main.js"></script>
 </head>
 <body>
 	<div id="universe">
 		<svg id="svg">
-
+			<g id="field">
+<!-- 				<g class="process-node" transform="translate(100, 100)">
+					<rect width="50" height="50" style="stroke: black;" />
+					<g class="substance" transform="translate(100, 100)">
+						<circle r="30" style="fill: none; stroke: black;" />
+						<circle r="10" style="fill: white; stroke: black;" cx="30" cy="10" />
+					</g>
+				</g> -->
+			</g>
 		</svg>
 	</div>
 	<div id="sidebar">
