@@ -2,18 +2,25 @@ $ ->
 
 	light = new Substance
 		name: "Light"
+
 	tilapia = new Substance
 		name: "Tilapia"
+
 	food = new Substance
 		name: "Food"
+
 	veggies = new Substance
 		name: "Veggies"
+
 	biomass = new Substance
 		name: "Biomass"
+
 	water = new Substance
 		name: "Water"
+
 	co2 = new Substance
-		name: "Carbon Dioxide (CO2)"
+		name: "Carbon \nDioxide \n(CO2)"
+
 	oxygen = new Substance
 		name: "Oxygen (O2)"
 
@@ -24,18 +31,22 @@ $ ->
 
 	hydroponicBed = new Process
 		name: "Hydroponic Bed"
-		inputs: [light, co2, water]
+		inputs: [light, oxygen, water]
 		outputs: [tilapia, co2, water]
 
-	
-	initializeGraph
-		nodes: [
-			new Node
-				process: tilapiaTank
-				position: new Vec 200, 200
-			new Node
-				process: hydroponicBed
-				position: new Vec 400, 400
+	graph = new GraphController
+	graph.initialize
+		processList: [
+			tilapiaTank, 
+			hydroponicBed,
 		]
+	graph.addProcesses [
+		new ProcessNode
+			process: tilapiaTank
+			position: new Vec 400, 400
+		new ProcessNode
+			process: hydroponicBed
+			position: new Vec 700, 400
+	]
 
 	

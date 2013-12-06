@@ -1,3 +1,14 @@
+@import "compass/css3/transition";
+
+@mixin no-selection {
+	-webkit-touch-callout: none;
+	-webkit-user-select: none;
+	-khtml-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+}
+
 html, body {
 	height: 100%;
 	margin: 0;
@@ -12,19 +23,62 @@ html, body {
 	position: absolute;
 	right: 0;
 	top: 0;
+	padding: 10px;
+
+	ul {
+		list-style: none;
+		padding-left: 0;
+	}
+
+	li {
+		display: block;
+		padding: 15px;
+		width: 100%;
+		border: 1px solid #ddd;
+	}
+}
+
+.handle {
+	cursor: pointer;
+}
+
+.process {
+	.process-handle {
+		fill: #222;
+		stroke: black;
+		stroke-width: 2px;
+	}
 }
 
 .socket {
+	.socket-handle {
+		@include single-transition(fill, 250ms);
+	}
+	.substance-name {
+		width: 50px;
+		pointer-events: none;
+		@include no-selection;
+	}
 	&.input {
-		fill: rgba(255, 255, 255, 0.8);
-		stroke: green;
+		circle.socket-handle {
+			fill: rgba(255, 255, 255, 0.9);
+			stroke: green;
+		}
 	}
 	&.output {
-		fill: green;
-		stroke: black;
+		circle.socket-handle {
+			fill: rgba(green, 0.9);
+			stroke: black;
+		}
+	}
+	&.potential-mate {
+		circle.socket-handle {
+			fill: yellow;
+		}
 	}
 }
 
 .process-socket-link {
 	stroke: black;
+	stroke-width: 2px;
 }

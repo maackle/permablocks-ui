@@ -4,13 +4,15 @@ class Substance
 	constructor: (o) ->
 		{ @name, } = o
 
+	isSimilarTo: (other) ->
+		this == other
 
 class Process
 
 	constructor: (o) ->
 		{ @name, @inputs, @outputs} = o
 
-	buildSockets: ->
+	getSockets: ->
 		all = []
 		ins = @inputs.map (a) -> 
 			new Socket 
@@ -20,21 +22,40 @@ class Process
 			new Socket 
 				substance: a
 				kind: "output"
-		console.log ins, outs
 		ins.concat outs
 
 class Socket
 
+	isPotentialMate: false  # if another socket is being dragged around and this is a match
+
 	constructor: (o) ->
 		{ @substance, @kind } = o
 
-class Node
+	canBindTo: (other) ->
+		a = this.substance
+		b = other.substance
+		this.kind isnt other.kind and a.isSimilarTo b
+
+
+class ProcessNode
 
 	x: null
 	y: null
-	fixed: true  # for force-directed layout
+	_sockets: null
 
 	constructor: (o)->
 		{ @process, position } = o
 		{ @x, @y } = position
 
+	sockets: ->
+		if not @_sockets?
+			ins = @process.inputs.map (a) -> 
+				new Socket 
+					substance: a
+					kind: "input"
+			outs = @process.outputs.map (a) -> 
+				new Socket 
+					substance: a
+					kind: "output"
+			@_sockets = ins.concat outs
+		@_sockets
