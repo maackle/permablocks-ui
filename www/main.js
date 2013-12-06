@@ -143,7 +143,7 @@
   Settings = {
     Force: {
       Process: {
-        charge: -200,
+        charge: -1000,
         linkDistance: 200,
         length: 600
       }
@@ -214,34 +214,35 @@
     };
 
     GraphController.prototype.updateProcesses = function() {
-      var nodes, self, socketGroups;
-      self = this;
+      var controller, nodes, socketGroups;
+      controller = this;
       nodes = this.field.selectAll('g.process').data(this.processNodes).enter().append('g').attr({
-        "class": 'process',
-        transform: dataTranslate
-      }).call(self.processDragging());
+        "class": 'process'
+      });
       socketGroups = nodes.append('g').attr({
         "class": 'socket-group'
       });
       nodes.append('rect').attr({
         "class": 'handle process-handle',
-        x: -Settings.processRectSize / 2,
-        y: -Settings.processRectSize / 2,
+        x: function(d) {
+          return d.x - Settings.processRectSize / 2;
+        },
+        y: function(d) {
+          return d.y - Settings.processRectSize / 2;
+        },
         width: Settings.processRectSize,
-        height: Settings.processRectSize,
-        transform: "rotate(45)"
-      });
+        height: Settings.processRectSize
+      }).call(controller.processDragging());
       return socketGroups.each(function(d, i) {
-        var centerNode, charge, force, g, length, linkDistance, links, sockets, sox, _i, _ref, _ref1, _results;
+        var centerNode, charge, force, g, handle, length, linkDistance, links, sockets, sox, _i, _ref, _ref1, _results;
         g = d3.select(this);
+        handle = d3.select(this.parentNode).select('.process-handle');
+        console.log(handle);
         _ref = Settings.Force.Process, charge = _ref.charge, linkDistance = _ref.linkDistance, length = _ref.length;
         force = d3.layout.force().charge(charge).linkDistance(linkDistance).size([length, length]).gravity(0);
         d.force = force;
-        centerNode = {
-          x: 0,
-          y: 0,
-          fixed: true
-        };
+        d.fixed = true;
+        centerNode = d;
         sox = d.sockets();
         force.nodes(sox.concat([centerNode]));
         force.links(sox.map(function(s) {
@@ -259,7 +260,7 @@
           }
         }).each(function(x, i) {
           return x.processData = d;
-        }).call(self.socketDragging());
+        }).call(controller.socketDragging());
         sockets.append('circle').attr({
           "class": 'handle socket-handle',
           r: Settings.socketCircleRadius
@@ -283,11 +284,9 @@
         force.on('tick', function(e) {
           sockets.each(function(d, i) {
             if (!d.isDragging) {
-              d.x -= d.x * e.alpha * 0.1;
-              d.y -= d.y * e.alpha * 0.1;
+              d.x += (centerNode.x - d.x) * e.alpha * 0.1;
+              return d.y += (centerNode.y - d.y) * e.alpha * 0.1;
             }
-            d.wx = d.x + d.processData.x;
-            return d.wy = d.y + d.processData.y;
           });
           sockets.select('.socket-handle').attr({
             cx: function(d) {
@@ -336,17 +335,23 @@
         var node, x, y, _ref;
         _ref = d3.event, x = _ref.x, y = _ref.y;
         node = d3.select(this);
-        d.x = x;
-        d.y = y;
+        d.px = x;
+        d.py = y;
+        d.force.resume();
         return node.attr({
-          transform: dataTranslate
+          x: function(d) {
+            return d.x - Settings.processRectSize / 2;
+          },
+          y: function(d) {
+            return d.y - Settings.processRectSize / 2;
+          }
         });
       });
     };
 
     GraphController.prototype.socketDragging = function() {
-      var self;
-      self = this;
+      var controller;
+      controller = this;
       return d3.behavior.drag().on('drag', function(socket) {
         var L, close, handle, node, other, x, y, _i, _len, _ref, _ref1, _results;
         _ref = d3.event, x = _ref.x, y = _ref.y;
@@ -359,7 +364,7 @@
           cx: x,
           cy: y
         });
-        _ref1 = self.processNodes;
+        _ref1 = controller.processNodes;
         _results = [];
         for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
           node = _ref1[_i];
@@ -373,7 +378,7 @@
                 L = Settings.sniffDistance + 2 * Settings.socketCircleRadius;
                 if (socket.canBindTo(other)) {
                   other.isPotentialMate = true;
-                  close = Math.abs(socket.wx - other.wx) < L && Math.abs(socket.wy - other.wy) < L;
+                  close = Math.abs(socket.x - other.x) < L && Math.abs(socket.y - other.y) < L;
                   if (close) {
                     _results1.push(console.log(socket, other));
                   } else {

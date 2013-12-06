@@ -4,7 +4,7 @@ dataTranslate = (d) -> "translate(#{d.x}, #{d.y})"
 Settings = 
 	Force:
 		Process:
-			charge: -200
+			charge: -1000
 			linkDistance: 200
 			length: 600
 
@@ -63,13 +63,12 @@ class GraphController
 		@updateProcesses()
 
 	updateProcesses: ->
-		self = @
+		controller = this
 		nodes = @field.selectAll('g.process')
 			.data(@processNodes).enter().append('g')
 			.attr
 				class: 'process'
-				transform: dataTranslate
-			.call(self.processDragging())
+				# transform: dataTranslate
 
 		socketGroups = nodes.append('g')
 			.attr
@@ -78,14 +77,17 @@ class GraphController
 		nodes.append('rect')
 			.attr
 				class: 'handle process-handle'
-				x: -Settings.processRectSize / 2
-				y: -Settings.processRectSize / 2
+				x: (d) -> d.x - Settings.processRectSize / 2
+				y: (d) -> d.y - Settings.processRectSize / 2
 				width: Settings.processRectSize
 				height: Settings.processRectSize
-				transform: "rotate(45)"
+				# transform: "rotate(45)"
+			.call(controller.processDragging())
 
 		socketGroups.each (d, i) ->
 			g = d3.select(this)
+			handle = d3.select(this.parentNode).select('.process-handle')
+			console.log handle
 
 			{charge, linkDistance, length} = Settings.Force.Process
 			force = d3.layout.force()
@@ -95,11 +97,8 @@ class GraphController
 				.gravity(0)
 
 			d.force = force
-
-			centerNode =
-				x: 0
-				y: 0
-				fixed: true
+			d.fixed = true
+			centerNode = d
 
 			sox = d.sockets()
 			force.nodes sox.concat [centerNode]
@@ -116,7 +115,7 @@ class GraphController
 					class: (d) -> "socket #{ d.kind }"
 				.each (x, i) ->
 					x.processData = d
-				.call(self.socketDragging())
+				.call(controller.socketDragging())
 
 			sockets.append('circle')
 				.attr
@@ -140,10 +139,8 @@ class GraphController
 
 				sockets.each (d, i) ->
 					unless d.isDragging
-						d.x -= d.x * e.alpha * 0.1
-						d.y -= d.y * e.alpha * 0.1
-					d.wx = d.x + d.processData.x
-					d.wy = d.y + d.processData.y
+						d.x += (centerNode.x - d.x) * e.alpha * 0.1
+						d.y += (centerNode.y - d.y) * e.alpha * 0.1
 
 				sockets.select('.socket-handle')
 					.attr
@@ -170,13 +167,15 @@ class GraphController
 			.on 'drag', (d) ->
 				{x, y} = d3.event
 				node = d3.select(this)
-				d.x = x
-				d.y = y
+				d.px = x
+				d.py = y
+				d.force.resume()
 				node.attr
-					transform: dataTranslate
+					x: (d) -> d.x - Settings.processRectSize / 2
+					y: (d) -> d.y - Settings.processRectSize / 2
 
 	socketDragging: ->
-		self = this
+		controller = this
 		d3.behavior.drag()
 			.on 'drag', (socket) ->
 				{x, y} = d3.event
@@ -188,13 +187,13 @@ class GraphController
 				handle.attr
 					cx: x
 					cy: y
-				for node in self.processNodes when node isnt socket.processData
+				for node in controller.processNodes when node isnt socket.processData
 					for other in node.sockets()
 						# console.log other
 						L = Settings.sniffDistance + 2*Settings.socketCircleRadius
 						if socket.canBindTo(other)
 							other.isPotentialMate = true
-							close = Math.abs(socket.wx - other.wx) < L and Math.abs(socket.wy - other.wy) < L
+							close = Math.abs(socket.x - other.x) < L and Math.abs(socket.y - other.y) < L
 							if close
 								console.log socket, other
 
