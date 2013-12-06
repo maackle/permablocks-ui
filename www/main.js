@@ -6,18 +6,80 @@
 
     Vec.prototype.y = 0;
 
-    function Vec(x, y) {
-      this.x = x;
-      this.y = y;
-    }
+    Vec.immutable = function() {
+      var v;
+      v = new Vec(arguments);
+      return Object.freeze(v);
+    };
 
     Vec.polar = function(r, t) {
-      return new Vec(Math.cos(t) * r, Math.sin(t) * r);
+      var x, y;
+      x = Math.cos(t) * r;
+      y = Math.sin(t) * r;
+      return new Vec(x, y);
+    };
+
+    function Vec() {
+      var v;
+      if (arguments.length === 1) {
+        v = arguments[0];
+        this.x = v.x;
+        this.y = v.y;
+      } else if (arguments.length === 2) {
+        this.x = arguments[0], this.y = arguments[1];
+      }
+    }
+
+    Vec.prototype.add = function(v) {
+      this.x += v.x;
+      this.y += v.y;
+      return this;
+    };
+
+    Vec.prototype.sub = function(v) {
+      this.x -= v.x;
+      this.y -= v.y;
+      return this;
+    };
+
+    Vec.prototype.mul = function(s) {
+      this.x *= s;
+      return this.y *= s;
+    };
+
+    Vec.prototype.div = function(s) {
+      this.x /= s;
+      return this.y /= s;
+    };
+
+    Vec.prototype.clamp = function(s) {
+      if (this.x > s) {
+        this.mul(s / this.x);
+      }
+      if (this.y > s) {
+        return this.mul(s / this.y);
+      }
+    };
+
+    Vec.prototype.lengthSquared = function() {
+      return this.x * this.x + this.y * this.y;
+    };
+
+    Vec.prototype.length = function() {
+      return Math.sqrt(this.lengthSquared());
+    };
+
+    Vec.prototype.angle = function() {
+      return clampAngleSigned(Math.atan2(this.y, this.x));
     };
 
     return Vec;
 
   })();
+
+  Vec.zero = Vec.immutable(0, 0);
+
+  Vec.one = Vec.immutable(1, 1);
 
   Substance = (function() {
     function Substance(o) {
@@ -66,11 +128,23 @@
       this.substance = o.substance, this.kind = o.kind;
     }
 
-    Socket.prototype.canBindTo = function(other) {
+    Socket.prototype.canBindTo = function(socket) {
       var a, b;
       a = this.substance;
-      b = other.substance;
-      return this.kind !== other.kind && a.isSimilarTo(b);
+      b = socket.substance;
+      return this.kind !== socket.kind && a.isSimilarTo(b);
+    };
+
+    Socket.prototype.attractTo = function(socket) {
+      var diff, len2;
+      diff = new Vec(socket);
+      diff.sub(this);
+      len2 = diff.lengthSquared();
+      diff.div(len2);
+      diff.mul(200);
+      diff.clamp(5);
+      this.px -= diff.x;
+      return this.py -= diff.y;
     };
 
     return Socket;
@@ -143,19 +217,24 @@
   Settings = {
     Force: {
       Process: {
-        charge: -1000,
+        charge: -300,
         linkDistance: 200,
+        linkStrength: 0.1,
         length: 600
       }
     },
     processRectSize: 100,
     socketCircleRadius: 50,
-    sniffDistance: 50,
+    processGravity: 0.1,
+    sniffDistance: 300,
+    updateDelayMs: 50,
     warmStartIterations: 50
   };
 
   GraphController = (function() {
     GraphController.prototype.currentSidebarDragProcess = null;
+
+    GraphController.prototype.currentSocketDrag = null;
 
     function GraphController() {
       this.processNodes = [];
@@ -213,6 +292,54 @@
       return this.updateProcesses();
     };
 
+    GraphController.prototype.socketUpdateCallback = function(sockets) {
+      var controller;
+      controller = this;
+      return function() {
+        var L, close, node, other, socket, _i, _len, _ref, _results;
+        sockets.each(function(s, i) {
+          if (s.isPotentialMate) {
+            return this.classList.add('potential-mate');
+          } else {
+            return this.classList.remove('potential-mate');
+          }
+        });
+        if (controller.currentSocketDrag != null) {
+          socket = controller.currentSocketDrag;
+          _ref = controller.processNodes;
+          _results = [];
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            node = _ref[_i];
+            if (node !== socket.processData) {
+              _results.push((function() {
+                var _j, _len1, _ref1, _results1;
+                _ref1 = node.sockets();
+                _results1 = [];
+                for (_j = 0, _len1 = _ref1.length; _j < _len1; _j++) {
+                  other = _ref1[_j];
+                  L = Settings.sniffDistance + 2 * Settings.socketCircleRadius;
+                  if (socket.canBindTo(other)) {
+                    other.isPotentialMate = true;
+                    close = Math.abs(socket.x - other.x) < L && Math.abs(socket.y - other.y) < L;
+                    if (close) {
+                      other.processData.force.resume();
+                      _results1.push(other.attractTo(socket));
+                    } else {
+                      _results1.push(void 0);
+                    }
+                  } else {
+                    _results1.push(void 0);
+                  }
+                }
+                return _results1;
+              })());
+            }
+          }
+          return _results;
+        }
+      };
+    };
+
     GraphController.prototype.updateProcesses = function() {
       var controller, nodes, socketGroups;
       controller = this;
@@ -234,12 +361,10 @@
         height: Settings.processRectSize
       }).call(controller.processDragging());
       return socketGroups.each(function(d, i) {
-        var centerNode, charge, force, g, handle, length, linkDistance, links, sockets, sox, _i, _ref, _ref1, _results;
+        var centerNode, charge, force, g, length, linkDistance, linkStrength, links, sockets, sox, _i, _ref, _ref1, _results;
         g = d3.select(this);
-        handle = d3.select(this.parentNode).select('.process-handle');
-        console.log(handle);
-        _ref = Settings.Force.Process, charge = _ref.charge, linkDistance = _ref.linkDistance, length = _ref.length;
-        force = d3.layout.force().charge(charge).linkDistance(linkDistance).size([length, length]).gravity(0);
+        _ref = Settings.Force.Process, charge = _ref.charge, linkDistance = _ref.linkDistance, linkStrength = _ref.linkStrength, length = _ref.length;
+        force = d3.layout.force().charge(charge).linkDistance(linkDistance).linkStrength(linkStrength).size([length, length]).gravity(0);
         d.force = force;
         d.fixed = true;
         centerNode = d;
@@ -272,20 +397,12 @@
         }).text(function(d) {
           return d.substance.name;
         });
-        setInterval(function() {
-          return sockets.each(function(d, i) {
-            if (d.isPotentialMate) {
-              return this.classList.add('potential-mate');
-            } else {
-              return this.classList.remove('potential-mate');
-            }
-          });
-        }, 50);
+        setInterval(controller.socketUpdateCallback(sockets), Settings.updateDelayMs);
         force.on('tick', function(e) {
           sockets.each(function(d, i) {
             if (!d.isDragging) {
-              d.x += (centerNode.x - d.x) * e.alpha * 0.1;
-              return d.y += (centerNode.y - d.y) * e.alpha * 0.1;
+              d.x += (centerNode.x - d.x) * e.alpha * Settings.processGravity;
+              return d.y += (centerNode.y - d.y) * e.alpha * Settings.processGravity;
             }
           });
           sockets.select('.socket-handle').attr({
@@ -353,56 +470,29 @@
       var controller;
       controller = this;
       return d3.behavior.drag().on('drag', function(socket) {
-        var L, close, handle, node, other, x, y, _i, _len, _ref, _ref1, _results;
+        var handle, node, x, y, _ref;
         _ref = d3.event, x = _ref.x, y = _ref.y;
         socket.px = x;
         socket.py = y;
         socket.processData.force.resume();
         node = d3.select(this);
         handle = node.select('.socket-handle');
-        handle.attr({
+        return handle.attr({
           cx: x,
           cy: y
         });
-        _ref1 = controller.processNodes;
-        _results = [];
-        for (_i = 0, _len = _ref1.length; _i < _len; _i++) {
-          node = _ref1[_i];
-          if (node !== socket.processData) {
-            _results.push((function() {
-              var _j, _len1, _ref2, _results1;
-              _ref2 = node.sockets();
-              _results1 = [];
-              for (_j = 0, _len1 = _ref2.length; _j < _len1; _j++) {
-                other = _ref2[_j];
-                L = Settings.sniffDistance + 2 * Settings.socketCircleRadius;
-                if (socket.canBindTo(other)) {
-                  other.isPotentialMate = true;
-                  close = Math.abs(socket.x - other.x) < L && Math.abs(socket.y - other.y) < L;
-                  if (close) {
-                    _results1.push(console.log(socket, other));
-                  } else {
-                    _results1.push(void 0);
-                  }
-                } else {
-                  _results1.push(void 0);
-                }
-              }
-              return _results1;
-            })());
-          }
-        }
-        return _results;
-      }).on('dragstart', function(d) {
-        d.isDragging = true;
-        d.fixed = true;
+      }).on('dragstart', function(socket) {
+        controller.currentSocketDrag = socket;
+        socket.isDragging = true;
+        socket.fixed = true;
         return d3.event.sourceEvent.stopPropagation();
-      }).on('dragend', function(d) {
-        d3.selectAll('.socket').each(function(d) {
-          return d.isPotentialMate = false;
+      }).on('dragend', function(socket) {
+        controller.currentSocketDrag = null;
+        d3.selectAll('.socket').each(function(s) {
+          return s.isPotentialMate = false;
         });
-        d.isDragging = false;
-        return d.fixed = false;
+        socket.isDragging = false;
+        return socket.fixed = false;
       });
     };
 
@@ -471,7 +561,7 @@
         position: new Vec(400, 400)
       }), new ProcessNode({
         process: hydroponicBed,
-        position: new Vec(700, 400)
+        position: new Vec(900, 400)
       })
     ]);
   });

@@ -46,7 +46,7 @@ $ ->
 			position: new Vec 400, 400
 		new ProcessNode
 			process: hydroponicBed
-			position: new Vec 700, 400
+			position: new Vec 900, 400
 	]
 
 	

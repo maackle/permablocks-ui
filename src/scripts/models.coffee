@@ -31,10 +31,22 @@ class Socket
 	constructor: (o) ->
 		{ @substance, @kind } = o
 
-	canBindTo: (other) ->
+	canBindTo: (socket) ->
 		a = this.substance
-		b = other.substance
-		this.kind isnt other.kind and a.isSimilarTo b
+		b = socket.substance
+		this.kind isnt socket.kind and a.isSimilarTo b
+
+	attractTo: (socket) ->
+		diff = new Vec socket
+		diff.sub this
+		len2 = diff.lengthSquared()
+		diff.div len2
+		diff.mul 200
+		diff.clamp 5
+		
+		@px -= diff.x
+		@py -= diff.y
+
 
 
 class ProcessNode

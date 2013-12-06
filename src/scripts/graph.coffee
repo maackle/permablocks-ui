@@ -4,19 +4,23 @@ dataTranslate = (d) -> "translate(#{d.x}, #{d.y})"
 Settings = 
 	Force:
 		Process:
-			charge: -1000
+			charge: -300
 			linkDistance: 200
+			linkStrength: 0.1
 			length: 600
 
 	processRectSize: 100
 	socketCircleRadius: 50
 
-	sniffDistance: 50
-	warmStartIterations: 50
+	processGravity: 0.1
+	sniffDistance: 300  # how close for a dragging socket to start affecting a compatible socket
+	updateDelayMs: 50
+	warmStartIterations: 50  # how many force iterations to burn through before really starting?
 
 class GraphController
 
 	currentSidebarDragProcess: null
+	currentSocketDrag: null
 
 	constructor: ->
 		@processNodes = []
@@ -62,6 +66,27 @@ class GraphController
 		@processNodes = @processNodes.concat nodes
 		@updateProcesses()
 
+	socketUpdateCallback: (sockets) -> 
+		controller = this
+		->
+			sockets.each (s, i) ->
+				if s.isPotentialMate
+					this.classList.add 'potential-mate'
+				else 
+					this.classList.remove 'potential-mate'
+			if controller.currentSocketDrag?
+				socket = controller.currentSocketDrag
+				for node in controller.processNodes when node isnt socket.processData
+					for other in node.sockets()
+						# console.log other
+						L = Settings.sniffDistance + 2*Settings.socketCircleRadius
+						if socket.canBindTo(other)
+							other.isPotentialMate = true
+							close = Math.abs(socket.x - other.x) < L and Math.abs(socket.y - other.y) < L
+							if close
+								other.processData.force.resume()
+								other.attractTo socket
+
 	updateProcesses: ->
 		controller = this
 		nodes = @field.selectAll('g.process')
@@ -86,13 +111,14 @@ class GraphController
 
 		socketGroups.each (d, i) ->
 			g = d3.select(this)
-			handle = d3.select(this.parentNode).select('.process-handle')
-			console.log handle
+			# handle = d3.select(this.parentNode).select('.process-handle')
+			# console.log handle
 
-			{charge, linkDistance, length} = Settings.Force.Process
+			{charge, linkDistance, linkStrength, length} = Settings.Force.Process
 			force = d3.layout.force()
 				.charge(charge)
 				.linkDistance(linkDistance)
+				.linkStrength(linkStrength)
 				.size([length, length])
 				.gravity(0)
 
@@ -105,6 +131,7 @@ class GraphController
 			force.links sox.map (s) ->
 				source: centerNode
 				target: s
+			# force.links {}
 
 			links = g.selectAll('process-socket-link').data(force.links()).enter().append('line')
 				.attr
@@ -129,18 +156,14 @@ class GraphController
 					stroke: 'black'
 				.text (d) -> d.substance.name
 
-			setInterval ->  # non-force related update function
-				sockets.each (d, i) ->
-					if d.isPotentialMate then this.classList.add 'potential-mate'
-					else this.classList.remove 'potential-mate'
-			, 50
+			setInterval controller.socketUpdateCallback(sockets), Settings.updateDelayMs
 
 			force.on 'tick', (e) ->
 
 				sockets.each (d, i) ->
 					unless d.isDragging
-						d.x += (centerNode.x - d.x) * e.alpha * 0.1
-						d.y += (centerNode.y - d.y) * e.alpha * 0.1
+						d.x += (centerNode.x - d.x) * e.alpha * Settings.processGravity 
+						d.y += (centerNode.y - d.y) * e.alpha * Settings.processGravity
 
 				sockets.select('.socket-handle')
 					.attr
@@ -187,26 +210,19 @@ class GraphController
 				handle.attr
 					cx: x
 					cy: y
-				for node in controller.processNodes when node isnt socket.processData
-					for other in node.sockets()
-						# console.log other
-						L = Settings.sniffDistance + 2*Settings.socketCircleRadius
-						if socket.canBindTo(other)
-							other.isPotentialMate = true
-							close = Math.abs(socket.x - other.x) < L and Math.abs(socket.y - other.y) < L
-							if close
-								console.log socket, other
+				
 
-			.on 'dragstart', (d) ->
-				# console.log 'dragstart', d
-				d.isDragging = true
-				d.fixed = true
+			.on 'dragstart', (socket) ->
+				controller.currentSocketDrag = socket
+				socket.isDragging = true
+				socket.fixed = true
 				d3.event.sourceEvent.stopPropagation()
-			.on 'dragend', (d) ->
-				d3.selectAll('.socket').each (d) ->
-					d.isPotentialMate = false
-				d.isDragging = false
-				d.fixed = false
+			.on 'dragend', (socket) ->
+				controller.currentSocketDrag = null
+				d3.selectAll('.socket').each (s) ->
+					s.isPotentialMate = false
+				socket.isDragging = false
+				socket.fixed = false
 
 	allSockets: ->
 		all = []
