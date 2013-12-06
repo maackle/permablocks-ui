@@ -16,9 +16,15 @@ html, body {
 
 .socket {
 	&.input {
-		fill: red;
+		fill: rgba(255, 255, 255, 0.8);
+		stroke: green;
 	}
 	&.output {
-		fill: blue;
+		fill: green;
+		stroke: black;
 	}
+}
+
+.process-socket-link {
+	stroke: black;
 }

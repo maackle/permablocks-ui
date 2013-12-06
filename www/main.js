@@ -1,5 +1,5 @@
 (function() {
-  var Node, NodeView, Process, Settings, Substance, Vec, initializeGraph, nodeDragging, nodeTranslate;
+  var Node, NodeView, Process, Settings, Socket, Substance, Vec, initializeGraph, nodeDragging, nodeTranslate, socketDragging, updateNodes;
 
   Vec = (function() {
     Vec.prototype.x = 0;
@@ -33,15 +33,49 @@
       this.name = o.name, this.inputs = o.inputs, this.outputs = o.outputs;
     }
 
+    Process.prototype.buildSockets = function() {
+      var all, ins, outs;
+      all = [];
+      ins = this.inputs.map(function(a) {
+        return new Socket({
+          substance: a,
+          kind: "input"
+        });
+      });
+      outs = this.outputs.map(function(a) {
+        return new Socket({
+          substance: a,
+          kind: "output"
+        });
+      });
+      console.log(ins, outs);
+      return ins.concat(outs);
+    };
+
     return Process;
 
   })();
 
+  Socket = (function() {
+    function Socket(o) {
+      this.substance = o.substance, this.kind = o.kind;
+    }
+
+    return Socket;
+
+  })();
+
   Node = (function() {
-    Node.prototype.position = null;
+    Node.prototype.x = null;
+
+    Node.prototype.y = null;
+
+    Node.prototype.fixed = true;
 
     function Node(o) {
-      this.process = o.process, this.position = o.position;
+      var position;
+      this.process = o.process, position = o.position;
+      this.x = position.x, this.y = position.y;
     }
 
     return Node;
@@ -71,27 +105,56 @@
   })();
 
   Settings = {
-    graphCharge: -100,
-    linkDistance: 100,
-    processRectSize: 100
+    Force: {
+      Process: {
+        charge: -100,
+        linkDistance: 100,
+        length: 600
+      }
+    },
+    processRectSize: 100,
+    socketCircleSize: 10
   };
 
   nodeTranslate = function(d) {
-    return "translate(" + d.position.x + ", " + d.position.y + ")";
+    return "translate(" + d.x + ", " + d.y + ")";
   };
 
   nodeDragging = d3.behavior.drag().origin(function(d) {
-    return d.position;
+    return d;
   }).on('drag', function(d) {
     var node, x, y, _ref;
     _ref = d3.event, x = _ref.x, y = _ref.y;
     node = d3.select(this);
-    d.position.x = x;
-    d.position.y = y;
+    d.x = x;
+    d.y = y;
     return node.attr({
       transform: nodeTranslate
     });
   });
+
+  socketDragging = d3.behavior.drag().on('drag', function(d) {
+    var node, x, y, _ref;
+    _ref = d3.event, x = _ref.x, y = _ref.y;
+    d.px = x;
+    d.py = y;
+    d.processData.force.resume();
+    node = d3.select(this);
+    return node.attr({
+      cx: x,
+      cy: y
+    });
+  }).on('dragstart', function(d) {
+    d.isDragging = true;
+    d.fixed = true;
+    return d3.event.sourceEvent.stopPropagation();
+  }).on('dragend', function(d) {
+    0;
+    d.isDragging = false;
+    return d.fixed = false;
+  });
+
+  updateNodes = function(nodes) {};
 
   initializeGraph = function(data) {
     var field, nodes, processes, socketGroups, svg;
@@ -101,6 +164,9 @@
       "class": 'process-node',
       transform: nodeTranslate
     }).call(nodeDragging);
+    socketGroups = nodes.append('g').attr({
+      "class": 'socket-group'
+    });
     processes = nodes.append('rect').attr({
       "class": 'process',
       x: -Settings.processRectSize / 2,
@@ -113,37 +179,72 @@
       stroke: 'black',
       strokeWidth: 2
     });
-    socketGroups = nodes.append('g').attr({
-      "class": 'sockets'
-    });
     return socketGroups.each(function(d, i) {
-      var N, g, input, j, output, x, y, _i, _j, _len, _len1, _ref, _ref1, _ref2, _ref3, _results;
+      var centerNode, charge, force, g, length, linkDistance, links, sockets, sox, _i, _ref, _results;
       g = d3.select(this);
-      _ref = d.process.inputs;
-      for (j = _i = 0, _len = _ref.length; _i < _len; j = ++_i) {
-        input = _ref[j];
-        N = d.process.inputs.length;
-        _ref1 = Vec.polar(Settings.processRectSize, Math.PI * j / N), x = _ref1.x, y = _ref1.y;
-        console.log(x, y);
-        g.append('circle').attr({
-          "class": 'socket input',
-          r: 10,
-          cx: x,
-          cy: y
+      _ref = Settings.Force.Process, charge = _ref.charge, linkDistance = _ref.linkDistance, length = _ref.length;
+      force = d3.layout.force().charge(charge).linkDistance(linkDistance).size([length, length]).gravity(0);
+      d.force = force;
+      centerNode = {
+        x: 0,
+        y: 0,
+        fixed: true
+      };
+      sox = d.process.buildSockets();
+      force.nodes(sox.concat([centerNode]));
+      force.links(sox.map(function(s) {
+        return {
+          source: centerNode,
+          target: s
+        };
+      }));
+      links = g.selectAll('process-socket-link').data(force.links()).enter().append('line').attr({
+        "class": 'process-socket-link'
+      });
+      sockets = g.selectAll('.socket').data(sox).enter().append('circle').attr({
+        "class": function(d) {
+          return "socket " + d.kind;
+        },
+        r: Settings.socketCircleSize
+      }).call(socketDragging).each(function(x, i) {
+        return x.processData = d;
+      });
+      force.on('tick', function(e) {
+        sockets.each(function(d, i) {
+          if (!d.isDragging) {
+            d.x -= d.x * e.alpha * 0.1;
+            return d.y -= d.y * e.alpha * 0.1;
+          }
         });
-      }
-      _ref2 = d.process.outputs;
+        sockets.attr({
+          cx: function(d) {
+            return d.x;
+          },
+          cy: function(d) {
+            return d.y;
+          }
+        });
+        return links.attr({
+          x1: function(d) {
+            return d.source.x;
+          },
+          y1: function(d) {
+            return d.source.y;
+          },
+          x2: function(d) {
+            return d.target.x;
+          },
+          y2: function(d) {
+            return d.target.y;
+          }
+        });
+      });
+      console.log('nodes', force.nodes());
+      console.log('links', force.links());
+      force.start();
       _results = [];
-      for (j = _j = 0, _len1 = _ref2.length; _j < _len1; j = ++_j) {
-        output = _ref2[j];
-        N = d.process.outputs.length;
-        _ref3 = Vec.polar(Settings.processRectSize, Math.PI * j / N + Math.PI), x = _ref3.x, y = _ref3.y;
-        _results.push(g.append('circle').attr({
-          "class": 'socket output',
-          r: 10,
-          cx: x,
-          cy: y
-        }));
+      for (i = _i = 0; _i <= 100; i = ++_i) {
+        _results.push(force.tick());
       }
       return _results;
     });
