@@ -1,20 +1,45 @@
 
 Settings = 
-	graphCharge: -100
-	linkDistance: 100
+	Force:
+		Process:
+			charge: -100
+			linkDistance: 100
+			# linkStrength: 100
+			length: 600
 
 	processRectSize: 100
+	socketCircleSize: 10
 
-nodeTranslate = (d) -> "translate(#{d.position.x}, #{d.position.y})"
+nodeTranslate = (d) -> "translate(#{d.x}, #{d.y})"
 
-nodeDragging = d3.behavior.drag().origin( (d) -> d.position)
+nodeDragging = d3.behavior.drag().origin( (d) -> d)
 	.on 'drag', (d) ->
 		{x, y} = d3.event
 		node = d3.select(this)
-		d.position.x = x
-		d.position.y = y
+		d.x = x
+		d.y = y
 		node.attr
 			transform: nodeTranslate
+
+socketDragging = d3.behavior.drag()
+	.on 'drag', (d) ->
+		{x, y} = d3.event
+		d.px = x
+		d.py = y
+		d.processData.force.resume()
+		node = d3.select(this)
+		node.attr
+			cx: x
+			cy: y
+	.on 'dragstart', (d) ->
+		d.isDragging = true
+		d.fixed = true
+		d3.event.sourceEvent.stopPropagation()
+	.on 'dragend', (d) ->
+		0
+		d.isDragging = false
+		d.fixed = false
+
 
 initializeGraph = (data) ->
 	svg = d3.select('#svg')
@@ -25,6 +50,10 @@ initializeGraph = (data) ->
 			class: 'process-node'
 			transform: nodeTranslate
 		.call(nodeDragging)
+
+	socketGroups = nodes.append('g')
+		.attr
+			class: 'socket-group'
 
 	processes = nodes.append('rect')
 		.attr
@@ -39,30 +68,60 @@ initializeGraph = (data) ->
 			stroke: 'black'
 			strokeWidth: 2
 
-	socketGroups = nodes.append('g')
-		.attr
-			class: 'sockets'
-
 	socketGroups.each (d, i) ->
 		g = d3.select(this)
 
-		for input, j in d.process.inputs
-			N = d.process.inputs.length
-			{x, y} = Vec.polar Settings.processRectSize, Math.PI * j / N
-			console.log x, y
-			g.append('circle')
+		{charge, linkDistance, length} = Settings.Force.Process
+		force = d3.layout.force()
+			.charge(charge)
+			.linkDistance(linkDistance)
+			.size([length, length])
+			.gravity(0)
+
+		d.force = force
+
+		centerNode =
+			x: 0
+			y: 0
+			fixed: true
+
+		sox = d.process.buildSockets()
+		force.nodes sox.concat [centerNode]
+		force.links sox.map (s) ->
+			source: centerNode
+			target: s
+
+		links = g.selectAll('process-socket-link').data(force.links()).enter().append('line')
+			.attr
+				class: 'process-socket-link'
+
+		sockets = g.selectAll('.socket').data(sox).enter().append('circle')
+			.attr
+				class: (d) -> "socket #{ d.kind }"
+				r: Settings.socketCircleSize
+			.each (x, i) ->
+				x.processData = d
+			.call(socketDragging)
+
+		force.on 'tick', (e) ->
+			
+			sockets.each (d, i) ->
+				unless d.isDragging
+					d.x -= d.x * e.alpha * 0.1
+					d.y -= d.y * e.alpha * 0.1
+
+			sockets
 				.attr
-					class: 'socket input'
-					r: 10
-					cx: x
-					cy: y
-		for output, j in d.process.outputs
-			N = d.process.outputs.length
-			{x, y} = Vec.polar Settings.processRectSize, Math.PI * j / N + Math.PI
-			g.append('circle')
-				.attr
-					class: 'socket output'
-					r: 10
-					cx: x
-					cy: y
+					cx: (d) -> d.x
+					cy: (d) -> d.y
+
+			links.attr
+				x1: (d) -> d.source.x
+				y1: (d) -> d.source.y
+				x2: (d) -> d.target.x
+				y2: (d) -> d.target.y
+
+		force.start()
+		for i in [0..100]
+			force.tick()
 

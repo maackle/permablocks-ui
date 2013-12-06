@@ -32,10 +32,10 @@ $ ->
 		nodes: [
 			new Node
 				process: tilapiaTank
-				position: new Vec 100, 100
+				position: new Vec 200, 200
 			new Node
 				process: hydroponicBed
-				position: new Vec 200, 200
+				position: new Vec 400, 400
 		]
 
 	
