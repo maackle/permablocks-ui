@@ -40,7 +40,6 @@ socketDragging = d3.behavior.drag()
 		d.isDragging = false
 		d.fixed = false
 
-
 initializeGraph = (data) ->
 	svg = d3.select('#svg')
 	field = d3.select('#field')
