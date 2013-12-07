@@ -1,5 +1,5 @@
 (function() {
-  var GraphController, NodeView, Process, ProcessNode, Settings, Socket, Substance, Vec, dataTranslate;
+  var GraphController, NodeView, Process, ProcessNode, Settings, Socket, SocketBinding, Substance, Vec, dataTranslate;
 
   Vec = (function() {
     Vec.prototype.x = 0;
@@ -124,6 +124,8 @@
   Socket = (function() {
     Socket.prototype.isPotentialMate = false;
 
+    Socket.prototype.binding = null;
+
     function Socket(o) {
       this.substance = o.substance, this.kind = o.kind;
     }
@@ -135,19 +137,51 @@
       return this.kind !== socket.kind && a.isSimilarTo(b);
     };
 
+    Socket.prototype.bindTo = function(socket) {
+      console.assert(this.canBindTo(socket));
+      this.binding = socket;
+      socket.binding = this;
+      if (socket.kind === 'input') {
+        return new SocketBinding(this, socket);
+      } else {
+        return new SocketBinding(socket, this);
+      }
+    };
+
+    Socket.prototype.unbind = function() {
+      if (this.binding != null) {
+        this.binding.binding = null;
+        return this.binding = null;
+      }
+    };
+
     Socket.prototype.attractTo = function(socket) {
       var diff, len2;
       diff = new Vec(socket);
       diff.sub(this);
       len2 = diff.lengthSquared();
       diff.div(len2);
-      diff.mul(200);
+      diff.mul(100);
       diff.clamp(5);
       this.px -= diff.x;
       return this.py -= diff.y;
     };
 
     return Socket;
+
+  })();
+
+  SocketBinding = (function() {
+    SocketBinding.prototype.source = null;
+
+    SocketBinding.prototype.target = null;
+
+    function SocketBinding(source, target) {
+      this.source = source;
+      this.target = target;
+    }
+
+    return SocketBinding;
 
   })();
 
@@ -223,8 +257,8 @@
         length: 600
       }
     },
-    processRectSize: 100,
-    socketCircleRadius: 50,
+    processRectSize: 80,
+    socketCircleRadius: 35,
     processGravity: 0.1,
     sniffDistance: 300,
     updateDelayMs: 50,
@@ -236,18 +270,26 @@
 
     GraphController.prototype.currentSocketDrag = null;
 
+    GraphController.prototype.interProcessForce = null;
+
+    GraphController.prototype.socketBindings = null;
+
     function GraphController() {
       this.processNodes = [];
+      this.socketBindings = [];
     }
 
     GraphController.prototype.initialize = function(o) {
+      var charge, length, linkDistance, linkStrength, _ref;
       this.processList = o.processList;
       this.svg = d3.select('#svg');
       this.field = d3.select('#field');
       this.$universe = $('#universe');
       this.$sidebar = $('#sidebar');
       this.renderSidebar();
-      return this.bindEvents();
+      this.bindEvents();
+      _ref = Settings.Force.Process, charge = _ref.charge, linkDistance = _ref.linkDistance, linkStrength = _ref.linkStrength, length = _ref.length;
+      return this.interProcessForce = d3.layout.force().charge(charge).linkDistance(linkDistance).linkStrength(linkStrength).size([length, length]).gravity(0);
     };
 
     GraphController.prototype.bindEvents = function() {
@@ -360,6 +402,18 @@
         width: Settings.processRectSize,
         height: Settings.processRectSize
       }).call(controller.processDragging());
+      nodes.append('text').attr({
+        "class": 'label process-name',
+        'text-anchor': 'middle',
+        x: function(d) {
+          return d.x;
+        },
+        y: function(d) {
+          return d.y;
+        }
+      }).text(function(d) {
+        return d.process.name;
+      });
       return socketGroups.each(function(d, i) {
         var centerNode, charge, force, g, length, linkDistance, linkStrength, links, sockets, sox, _i, _ref, _ref1, _results;
         g = d3.select(this);
@@ -392,7 +446,7 @@
         });
         sockets.append('text').attr({
           'text-anchor': 'middle',
-          "class": 'substance-name',
+          "class": 'label substance-name',
           stroke: 'black'
         }).text(function(d) {
           return d.substance.name;
@@ -449,18 +503,27 @@
       return d3.behavior.drag().origin(function(d) {
         return d;
       }).on('drag', function(d) {
-        var node, x, y, _ref;
+        var label, node, x, y, _ref;
         _ref = d3.event, x = _ref.x, y = _ref.y;
         node = d3.select(this);
+        label = d3.select(this.parentNode).select('.process-name');
         d.px = x;
         d.py = y;
         d.force.resume();
-        return node.attr({
+        node.attr({
           x: function(d) {
             return d.x - Settings.processRectSize / 2;
           },
           y: function(d) {
             return d.y - Settings.processRectSize / 2;
+          }
+        });
+        return label.attr({
+          x: function(d) {
+            return x;
+          },
+          y: function(d) {
+            return y;
           }
         });
       });

@@ -18,7 +18,7 @@ html, body {
 #sidebar {
 	background: rgb(245, 245, 245);
 	border-left: 1px solid rgb(230, 230, 230);
-	width: 300px;
+	width: 200px;
 	height: 100%;
 	position: absolute;
 	right: 0;
@@ -42,39 +42,58 @@ html, body {
 	cursor: pointer;
 }
 
+.label {
+	pointer-events: none;
+	@include no-selection;
+	cursor: inherit;
+	stroke: black;
+	stroke-width: 0px;
+	font-size: 12px;
+	text-transform: uppercase;
+}
+
 .process {
 	.process-handle {
-		fill: #222;
-		stroke: black;
+		fill: rgba(#ccc, 0.9);
+		stroke: #fff;
 		stroke-width: 2px;
 		cursor: move;
+	}
+	.process-name {
+		fill: black;
+		font-size: 14px;
+		font-weight: bold;
 	}
 }
 
 .socket {
 	.socket-handle {
-		@include single-transition(fill, 250ms);
-	}
-	.substance-name {
-		width: 50px;
-		pointer-events: none;
-		@include no-selection;
+		@include single-transition(stroke, 250ms);
+		@include single-transition(stroke-width, 250ms);
+		stroke-width: 15px;
 	}
 	&.input {
 		circle.socket-handle {
-			fill: rgba(255, 255, 255, 0.9);
-			stroke: green;
+			fill: rgba(cyan, 0.9);
+			stroke: rgba(cyan, 0.5);
+		}
+		.substance-name {
+			fill: #444;
 		}
 	}
 	&.output {
 		circle.socket-handle {
-			fill: rgba(green, 0.9);
-			stroke: black;
+			fill: rgba(orange, 0.9);
+			stroke: rgba(orange, 0.5);
+		}
+		.substance-name {
+			fill: #000;
 		}
 	}
 	&.potential-mate {
 		circle.socket-handle {
-			fill: yellow;
+			stroke: rgba(yellow, 0.5);
+			stroke-width: 40px;
 		}
 	}
 }

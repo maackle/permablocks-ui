@@ -9,8 +9,8 @@ Settings =
 			linkStrength: 0.1
 			length: 600
 
-	processRectSize: 100
-	socketCircleRadius: 50
+	processRectSize: 80
+	socketCircleRadius: 35
 
 	processGravity: 0.1
 	sniffDistance: 300  # how close for a dragging socket to start affecting a compatible socket
@@ -21,9 +21,12 @@ class GraphController
 
 	currentSidebarDragProcess: null
 	currentSocketDrag: null
+	interProcessForce: null
+	socketBindings: null
 
 	constructor: ->
 		@processNodes = []
+		@socketBindings = []
 
 	initialize: (o) ->
 		{ @processList, } = o
@@ -33,6 +36,15 @@ class GraphController
 		@$sidebar = $('#sidebar')
 		@renderSidebar()
 		@bindEvents()
+		
+		{charge, linkDistance, linkStrength, length} = Settings.Force.Process
+		@interProcessForce = d3.layout.force()
+			.charge(charge)
+			.linkDistance(linkDistance)
+			.linkStrength(linkStrength)
+			.size([length, length])
+			.gravity(0)
+		 
 
 	bindEvents: ->
 		@$sidebar.find('li')
@@ -109,6 +121,14 @@ class GraphController
 				# transform: "rotate(45)"
 			.call(controller.processDragging())
 
+		nodes.append('text')
+			.attr
+				class: 'label process-name'
+				'text-anchor': 'middle'
+				x: (d) -> d.x
+				y: (d) -> d.y
+			.text (d) -> d.process.name
+
 		socketGroups.each (d, i) ->
 			g = d3.select(this)
 			# handle = d3.select(this.parentNode).select('.process-handle')
@@ -152,7 +172,7 @@ class GraphController
 			sockets.append('text')
 				.attr
 					'text-anchor': 'middle'
-					class: 'substance-name'
+					class: 'label substance-name'
 					stroke: 'black'
 				.text (d) -> d.substance.name
 
@@ -190,12 +210,16 @@ class GraphController
 			.on 'drag', (d) ->
 				{x, y} = d3.event
 				node = d3.select(this)
+				label = d3.select(this.parentNode).select('.process-name')
 				d.px = x
 				d.py = y
 				d.force.resume()
 				node.attr
 					x: (d) -> d.x - Settings.processRectSize / 2
 					y: (d) -> d.y - Settings.processRectSize / 2
+				label.attr
+					x: (d) -> x
+					y: (d) -> y
 
 	socketDragging: ->
 		controller = this

@@ -27,6 +27,7 @@ class Process
 class Socket
 
 	isPotentialMate: false  # if another socket is being dragged around and this is a match
+	binding: null
 
 	constructor: (o) ->
 		{ @substance, @kind } = o
@@ -36,18 +37,38 @@ class Socket
 		b = socket.substance
 		this.kind isnt socket.kind and a.isSimilarTo b
 
+	bindTo: (socket) ->
+		console.assert this.canBindTo socket
+		this.binding = socket
+		socket.binding = this
+		if socket.kind is 'input'
+			new SocketBinding this, socket
+		else
+			new SocketBinding socket, this
+
+
+	unbind: ->
+		if this.binding?
+			this.binding.binding = null
+			this.binding = null
+
 	attractTo: (socket) ->
 		diff = new Vec socket
 		diff.sub this
 		len2 = diff.lengthSquared()
 		diff.div len2
-		diff.mul 200
+		diff.mul 100
 		diff.clamp 5
-		
+
 		@px -= diff.x
 		@py -= diff.y
 
+class SocketBinding
 
+	source: null
+	target: null
+
+	constructor: (@source, @target) ->
 
 class ProcessNode
 
