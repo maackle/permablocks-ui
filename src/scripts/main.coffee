@@ -40,13 +40,13 @@ $ ->
 			tilapiaTank, 
 			hydroponicBed,
 		]
-	graph.addProcesses [
-		new ProcessNode
-			process: tilapiaTank
-			position: new Vec 400, 400
-		new ProcessNode
-			process: hydroponicBed
-			position: new Vec 900, 400
-	]
+	# graph.addProcesses [
+	# 	new ProcessNode
+	# 		process: tilapiaTank
+	# 		position: new Vec 400, 400
+	# 	new ProcessNode
+	# 		process: hydroponicBed
+	# 		position: new Vec 900, 400
+	# ]
 
 	

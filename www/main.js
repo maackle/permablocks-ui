@@ -615,18 +615,9 @@
       outputs: [tilapia, co2, water]
     });
     graph = new GraphController;
-    graph.initialize({
+    return graph.initialize({
       processList: [tilapiaTank, hydroponicBed]
     });
-    return graph.addProcesses([
-      new ProcessNode({
-        process: tilapiaTank,
-        position: new Vec(400, 400)
-      }), new ProcessNode({
-        process: hydroponicBed,
-        position: new Vec(900, 400)
-      })
-    ]);
   });
 
 }).call(this);
