@@ -100,13 +100,15 @@ a:link, a:visited {
 
 .process {
 	.process-handle {
-		fill: rgba(#ccc, 0.9);
+		fill: rgba(#000, 0.9);
 		stroke: #fff;
 		stroke-width: 2px;
 		cursor: move;
 	}
 	.process-name {
-		fill: black;
+		fill: white;
+		stroke: black;
+		stroke-width: 1px;
 		font-size: 14px;
 		font-weight: bold;
 	}
@@ -116,26 +118,28 @@ a:link, a:visited {
 	.socket-handle {
 		@include single-transition(stroke, 250ms);
 		@include single-transition(stroke-width, 250ms);
-		stroke-width: 15px;
+		stroke-width: 2px;
+		fill: rgba(white, 0.9);
+		stroke: rgba(black, 0.9);
 	}
-	&.input {
-		circle.socket-handle {
-			fill: rgba(cyan, 0.9);
-			stroke: rgba(cyan, 0.5);
-		}
-		.substance-name {
-			fill: #444;
-		}
-	}
-	&.output {
-		circle.socket-handle {
-			fill: rgba(orange, 0.9);
-			stroke: rgba(orange, 0.5);
-		}
-		.substance-name {
-			fill: #000;
-		}
-	}
+	// &.input {
+	// 	circle.socket-handle {
+	// 		fill: rgba(cyan, 0.9);
+	// 		stroke: rgba(cyan, 0.5);
+	// 	}
+	// 	.substance-name {
+	// 		fill: #444;
+	// 	}
+	// }
+	// &.output {
+	// 	circle.socket-handle {
+	// 		fill: rgba(orange, 0.9);
+	// 		stroke: rgba(orange, 0.5);
+	// 	}
+	// 	.substance-name {
+	// 		fill: #000;
+	// 	}
+	// }
 	&.potential-mate {
 		circle.socket-handle {
 			stroke: rgba(yellow, 0.5);
@@ -146,5 +150,10 @@ a:link, a:visited {
 
 .process-socket-link {
 	stroke: black;
-	stroke-width: 2px;
+	stroke-width: 7px;
+
+	&.input {
+		stroke: black;
+		stroke-width: 4px;
+	}
 }

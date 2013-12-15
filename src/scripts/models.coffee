@@ -28,6 +28,7 @@ class Socket
 
 	isPotentialMate: false  # if another socket is being dragged around and this is a match
 	binding: null
+	radius: Settings.socketCircleRadius
 
 	constructor: (o) ->
 		{ @substance, @kind } = o
@@ -74,6 +75,7 @@ class ProcessNode
 
 	x: null
 	y: null
+	radius: Settings.processCircleRadius
 	_sockets: null
 
 	constructor: (o)->

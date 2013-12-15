@@ -27,6 +27,7 @@ module.exports = (grunt) ->
             compile:
                 files:
                     "<%= config.dist %>/main.js": [
+                        "<%= config.app %>/scripts/settings.coffee",
                         "<%= config.app %>/scripts/util.coffee",
                         "<%= config.app %>/scripts/models.coffee",
                         "<%= config.app %>/scripts/views.coffee",

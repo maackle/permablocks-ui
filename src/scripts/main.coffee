@@ -24,13 +24,13 @@ $ ->
 	oxygen = new Substance
 		name: "Oxygen (O2)"
 
-	tilapiaTank = new Process
-		name: "Tilapia Tank"
+	hydroponicBed = new Process
+		name: "Hydroponic Bed"
 		inputs: [light, co2, water]
 		outputs: [veggies, biomass, oxygen, water]
 
-	hydroponicBed = new Process
-		name: "Hydroponic Bed"
+	tilapiaTank = new Process
+		name: "Tilapia Tank"
 		inputs: [light, oxygen, water]
 		outputs: [tilapia, co2, water]
 

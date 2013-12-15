@@ -1,22 +1,6 @@
 
 dataTranslate = (d) -> "translate(#{d.x}, #{d.y})"
 
-Settings = 
-	Force:
-		Process:
-			charge: -300
-			linkDistance: 200
-			linkStrength: 0.1
-			length: 600
-
-	processRectSize: 80
-	socketCircleRadius: 35
-
-	processGravity: 0.1
-	sniffDistance: 300  # how close for a dragging socket to start affecting a compatible socket
-	updateDelayMs: 50
-	warmStartIterations: 50  # how many force iterations to burn through before really starting?
-
 class GraphController
 
 	currentSidebarDragProcess: null
@@ -111,13 +95,12 @@ class GraphController
 			.attr
 				class: 'socket-group'
 
-		nodes.append('rect')
+		nodes.append('circle')
 			.attr
 				class: 'handle process-handle'
-				x: (d) -> d.x - Settings.processRectSize / 2
-				y: (d) -> d.y - Settings.processRectSize / 2
-				width: Settings.processRectSize
-				height: Settings.processRectSize
+				cx: (d) -> d.x
+				cy: (d) -> d.y
+				r: (d) -> d.radius
 				# transform: "rotate(45)"
 			.call(controller.processDragging())
 
@@ -149,13 +132,20 @@ class GraphController
 			sox = d.sockets()
 			force.nodes sox.concat [centerNode]
 			force.links sox.map (s) ->
-				source: centerNode
-				target: s
+				if s.kind == 'input'
+					source: s
+					target: centerNode
+					direction: 'input'
+				else
+					source: centerNode
+					target: s
+					direction: 'output'
 			# force.links {}
 
 			links = g.selectAll('process-socket-link').data(force.links()).enter().append('line')
 				.attr
-					class: 'process-socket-link'
+					class: (d) -> "process-socket-link #{ d.direction }"
+					'marker-end': 'url(#arrowhead-triangle)'
 
 			sockets = g.selectAll('.socket').data(sox).enter().append('g')
 				.attr
@@ -167,7 +157,7 @@ class GraphController
 			sockets.append('circle')
 				.attr
 					class: 'handle socket-handle'
-					r: Settings.socketCircleRadius
+					r: (d) -> d.radius
 
 			sockets.append('text')
 				.attr
@@ -195,11 +185,18 @@ class GraphController
 						dx: (d) -> d.x
 						dy: (d) -> d.y
 
-				links.attr
-					x1: (d) -> d.source.x
-					y1: (d) -> d.source.y
-					x2: (d) -> d.target.x
-					y2: (d) -> d.target.y
+				links.each (d, i) ->
+					diff =
+						x: d.target.x - d.source.x
+						y: d.target.y - d.source.y
+					angle = Math.atan2(diff.y, diff.x)
+					el = d3.select(this)
+					strokeWidth = el.style('stroke-width').replace("px", "")
+					el.attr
+						x1: d.source.x + Math.cos(angle) * (d.source.radius)
+						y1: d.source.y + Math.sin(angle) * (d.source.radius)
+						x2: d.target.x - Math.cos(angle) * (d.target.radius + 3 * strokeWidth)
+						y2: d.target.y - Math.sin(angle) * (d.target.radius + 3 * strokeWidth)
 
 			force.start()
 			for i in [0..Settings.warmStartIterations]
@@ -215,8 +212,8 @@ class GraphController
 				d.py = y
 				d.force.resume()
 				node.attr
-					x: (d) -> d.x - Settings.processRectSize / 2
-					y: (d) -> d.y - Settings.processRectSize / 2
+					cx: (d) -> d.x
+					cy: (d) -> d.y
 				label.attr
 					x: (d) -> x
 					y: (d) -> y

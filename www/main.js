@@ -1,6 +1,24 @@
 (function() {
   var GraphController, NodeView, Process, ProcessNode, Settings, Socket, SocketBinding, Substance, Vec, dataTranslate;
 
+  Settings = {
+    Force: {
+      Process: {
+        charge: -300,
+        linkDistance: 200,
+        linkStrength: 0.1,
+        length: 600
+      }
+    },
+    arrowheadLength: 16,
+    processCircleRadius: 50,
+    socketCircleRadius: 35,
+    processGravity: 0.1,
+    sniffDistance: 300,
+    updateDelayMs: 50,
+    warmStartIterations: 50
+  };
+
   Vec = (function() {
     Vec.prototype.x = 0;
 
@@ -126,6 +144,8 @@
 
     Socket.prototype.binding = null;
 
+    Socket.prototype.radius = Settings.socketCircleRadius;
+
     function Socket(o) {
       this.substance = o.substance, this.kind = o.kind;
     }
@@ -190,6 +210,8 @@
 
     ProcessNode.prototype.y = null;
 
+    ProcessNode.prototype.radius = Settings.processCircleRadius;
+
     ProcessNode.prototype._sockets = null;
 
     function ProcessNode(o) {
@@ -246,23 +268,6 @@
 
   dataTranslate = function(d) {
     return "translate(" + d.x + ", " + d.y + ")";
-  };
-
-  Settings = {
-    Force: {
-      Process: {
-        charge: -300,
-        linkDistance: 200,
-        linkStrength: 0.1,
-        length: 600
-      }
-    },
-    processRectSize: 80,
-    socketCircleRadius: 35,
-    processGravity: 0.1,
-    sniffDistance: 300,
-    updateDelayMs: 50,
-    warmStartIterations: 50
   };
 
   GraphController = (function() {
@@ -391,16 +396,17 @@
       socketGroups = nodes.append('g').attr({
         "class": 'socket-group'
       });
-      nodes.append('rect').attr({
+      nodes.append('circle').attr({
         "class": 'handle process-handle',
-        x: function(d) {
-          return d.x - Settings.processRectSize / 2;
+        cx: function(d) {
+          return d.x;
         },
-        y: function(d) {
-          return d.y - Settings.processRectSize / 2;
+        cy: function(d) {
+          return d.y;
         },
-        width: Settings.processRectSize,
-        height: Settings.processRectSize
+        r: function(d) {
+          return d.radius;
+        }
       }).call(controller.processDragging());
       nodes.append('text').attr({
         "class": 'label process-name',
@@ -425,13 +431,25 @@
         sox = d.sockets();
         force.nodes(sox.concat([centerNode]));
         force.links(sox.map(function(s) {
-          return {
-            source: centerNode,
-            target: s
-          };
+          if (s.kind === 'input') {
+            return {
+              source: s,
+              target: centerNode,
+              direction: 'input'
+            };
+          } else {
+            return {
+              source: centerNode,
+              target: s,
+              direction: 'output'
+            };
+          }
         }));
         links = g.selectAll('process-socket-link').data(force.links()).enter().append('line').attr({
-          "class": 'process-socket-link'
+          "class": function(d) {
+            return "process-socket-link " + d.direction;
+          },
+          'marker-end': 'url(#arrowhead-triangle)'
         });
         sockets = g.selectAll('.socket').data(sox).enter().append('g').attr({
           "class": function(d) {
@@ -442,7 +460,9 @@
         }).call(controller.socketDragging());
         sockets.append('circle').attr({
           "class": 'handle socket-handle',
-          r: Settings.socketCircleRadius
+          r: function(d) {
+            return d.radius;
+          }
         });
         sockets.append('text').attr({
           'text-anchor': 'middle',
@@ -475,19 +495,21 @@
               return d.y;
             }
           });
-          return links.attr({
-            x1: function(d) {
-              return d.source.x;
-            },
-            y1: function(d) {
-              return d.source.y;
-            },
-            x2: function(d) {
-              return d.target.x;
-            },
-            y2: function(d) {
-              return d.target.y;
-            }
+          return links.each(function(d, i) {
+            var angle, diff, el, strokeWidth;
+            diff = {
+              x: d.target.x - d.source.x,
+              y: d.target.y - d.source.y
+            };
+            angle = Math.atan2(diff.y, diff.x);
+            el = d3.select(this);
+            strokeWidth = el.style('stroke-width').replace("px", "");
+            return el.attr({
+              x1: d.source.x + Math.cos(angle) * d.source.radius,
+              y1: d.source.y + Math.sin(angle) * d.source.radius,
+              x2: d.target.x - Math.cos(angle) * (d.target.radius + 3 * strokeWidth),
+              y2: d.target.y - Math.sin(angle) * (d.target.radius + 3 * strokeWidth)
+            });
           });
         });
         force.start();
@@ -511,11 +533,11 @@
         d.py = y;
         d.force.resume();
         node.attr({
-          x: function(d) {
-            return d.x - Settings.processRectSize / 2;
+          cx: function(d) {
+            return d.x;
           },
-          y: function(d) {
-            return d.y - Settings.processRectSize / 2;
+          cy: function(d) {
+            return d.y;
           }
         });
         return label.attr({
@@ -604,13 +626,13 @@
     oxygen = new Substance({
       name: "Oxygen (O2)"
     });
-    tilapiaTank = new Process({
-      name: "Tilapia Tank",
+    hydroponicBed = new Process({
+      name: "Hydroponic Bed",
       inputs: [light, co2, water],
       outputs: [veggies, biomass, oxygen, water]
     });
-    hydroponicBed = new Process({
-      name: "Hydroponic Bed",
+    tilapiaTank = new Process({
+      name: "Tilapia Tank",
       inputs: [light, oxygen, water],
       outputs: [tilapia, co2, water]
     });
