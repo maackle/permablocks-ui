@@ -1,0 +1,6 @@
+
+form for adding new blocks
+
+links
+	- can link any input to any output
+	- basic restrictions: energy /= matter, input <- output
