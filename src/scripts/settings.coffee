@@ -10,6 +10,7 @@ Settings =
 	arrowheadLength: 16
 	processCircleRadius: 50
 	socketCircleRadius: 35
+	bindingCircleRadius: 70
 
 	processGravity: 0.1
 	sniffDistance: 300  # how close for a dragging socket to start affecting a compatible socket

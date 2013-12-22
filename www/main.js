@@ -1,5 +1,6 @@
 (function() {
-  var GraphController, NodeView, Process, ProcessNode, Settings, Socket, SocketBinding, Substance, Vec, dataTranslate;
+  var GraphController, NodeView, Process, ProcessNode, Settings, Socket, SocketBinding, Substance, Vec,
+    __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
   Settings = {
     Force: {
@@ -13,6 +14,7 @@
     arrowheadLength: 16,
     processCircleRadius: 50,
     socketCircleRadius: 35,
+    bindingCircleRadius: 70,
     processGravity: 0.1,
     sniffDistance: 300,
     updateDelayMs: 50,
@@ -196,6 +198,8 @@
 
     SocketBinding.prototype.target = null;
 
+    SocketBinding.prototype.radius = Settings.bindingCircleRadius;
+
     function SocketBinding(source, target) {
       this.source = source;
       this.target = target;
@@ -266,10 +270,6 @@
 
   })();
 
-  dataTranslate = function(d) {
-    return "translate(" + d.x + ", " + d.y + ")";
-  };
-
   GraphController = (function() {
     GraphController.prototype.currentSidebarDragProcess = null;
 
@@ -279,13 +279,17 @@
 
     GraphController.prototype.socketBindings = null;
 
+    GraphController.prototype.d3bindings = null;
+
     function GraphController() {
       this.processNodes = [];
       this.socketBindings = [];
+      this.d3bindings = d3.select();
     }
 
     GraphController.prototype.initialize = function(o) {
-      var charge, length, linkDistance, linkStrength, _ref;
+      var charge, length, linkDistance, linkStrength, _ref,
+        _this = this;
       this.processList = o.processList;
       this.svg = d3.select('#svg');
       this.field = d3.select('#field');
@@ -294,7 +298,28 @@
       this.renderSidebar();
       this.bindEvents();
       _ref = Settings.Force.Process, charge = _ref.charge, linkDistance = _ref.linkDistance, linkStrength = _ref.linkStrength, length = _ref.length;
-      return this.interProcessForce = d3.layout.force().charge(charge).linkDistance(linkDistance).linkStrength(linkStrength).size([length, length]).gravity(0);
+      this.interProcessForce = d3.layout.force().charge(charge).linkDistance(linkDistance).linkStrength(linkStrength).size([length, length]).gravity(0);
+      this.interProcessForce.on('tick', function(e) {
+        return _this.d3bindings.each(function(s, i) {
+          var a, b, dist, mean;
+          a = s.source;
+          b = s.target;
+          mean = {
+            x: (a.x + b.x) / 2,
+            y: (a.y + b.y) / 2
+          };
+          dist = Math.sqrt(a.x * b.x + a.y * b.y);
+          s.x = mean.x;
+          s.y = mean.y;
+          s.radius = dist / 2;
+          return d3.select(this).select("circle").attr({
+            cx: s.x,
+            cy: s.y,
+            r: s.radius
+          });
+        });
+      });
+      return this.interProcessForce.start();
     };
 
     GraphController.prototype.bindEvents = function() {
@@ -385,6 +410,46 @@
           return _results;
         }
       };
+    };
+
+    GraphController.prototype.addBinding = function(binding) {
+      if (!(__indexOf.call(this.socketBindings, binding) >= 0)) {
+        this.socketBindings.push(binding);
+      }
+      return this.updateBindings();
+    };
+
+    GraphController.prototype.removeBinding = function(binding) {
+      this.socketBindings = _.pull(this.socketBindings, binding);
+      return this.updateBindings();
+    };
+
+    GraphController.prototype.updateBindings = function() {
+      var bindings, controller;
+      controller = this;
+      this.d3bindings = this.field.select('g.bindings').selectAll('g.binding').data(this.socketBindings);
+      bindings = this.d3bindings.enter().append('g').attr({
+        "class": 'binding'
+      }).each(function(d, i) {
+        var binding, links, nodes, _i, _len, _ref, _results;
+        nodes = [];
+        links = [];
+        _ref = controller.socketBindings;
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          binding = _ref[_i];
+          nodes.push(binding.source);
+          nodes.push(binding.target);
+          _results.push(links.push(binding));
+        }
+        return _results;
+      });
+      return bindings.append('circle').attr({
+        "class": 'binding-circle',
+        r: function(d) {
+          return d.radius;
+        }
+      });
     };
 
     GraphController.prototype.updateProcesses = function() {
@@ -574,6 +639,10 @@
       }).on('dragend', function(socket) {
         controller.currentSocketDrag = null;
         d3.selectAll('.socket').each(function(s) {
+          if (socket !== s && Math.abs(socket.x - s.x) < 100 && Math.abs(socket.y - s.y) < 100) {
+            console.log('dragged scket', socket);
+            controller.addBinding(new SocketBinding(socket, s));
+          }
           return s.isPotentialMate = false;
         });
         socket.isDragging = false;

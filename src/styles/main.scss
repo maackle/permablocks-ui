@@ -157,3 +157,10 @@ a:link, a:visited {
 		stroke-width: 4px;
 	}
 }
+
+.binding {
+	.binding-circle {
+		stroke: black;
+		fill: rgba(white, 0.05);
+	}
+}

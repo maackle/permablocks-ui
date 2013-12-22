@@ -68,6 +68,7 @@ class SocketBinding
 
 	source: null
 	target: null
+	radius: Settings.bindingCircleRadius
 
 	constructor: (@source, @target) ->
 

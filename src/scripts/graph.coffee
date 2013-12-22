@@ -1,16 +1,16 @@
 
-dataTranslate = (d) -> "translate(#{d.x}, #{d.y})"
-
 class GraphController
 
 	currentSidebarDragProcess: null
 	currentSocketDrag: null
 	interProcessForce: null
 	socketBindings: null
+	d3bindings: null
 
 	constructor: ->
 		@processNodes = []
 		@socketBindings = []
+		@d3bindings = d3.select()
 
 	initialize: (o) ->
 		{ @processList, } = o
@@ -28,6 +28,24 @@ class GraphController
 			.linkStrength(linkStrength)
 			.size([length, length])
 			.gravity(0)
+
+		@interProcessForce.on 'tick', (e) =>
+			@d3bindings.each (s, i) ->
+				a = s.source
+				b = s.target
+				mean =
+					x: (a.x + b.x) / 2
+					y: (a.y + b.y) / 2
+				dist = Math.sqrt(a.x*b.x + a.y*b.y)
+				s.x = mean.x
+				s.y = mean.y
+				s.radius = dist/2
+				d3.select(this).select("circle").attr
+					cx: s.x
+					cy: s.y
+					r: s.radius
+
+		@interProcessForce.start()
 		 
 
 	bindEvents: ->
@@ -74,7 +92,6 @@ class GraphController
 				socket = controller.currentSocketDrag
 				for node in controller.processNodes when node isnt socket.processData
 					for other in node.sockets()
-						# console.log other
 						L = Settings.sniffDistance + 2*Settings.socketCircleRadius
 						if socket.canBindTo(other)
 							other.isPotentialMate = true
@@ -83,13 +100,43 @@ class GraphController
 								other.processData.force.resume()
 								other.attractTo socket
 
+	addBinding: (binding) ->
+		if not (binding in @socketBindings)
+			@socketBindings.push binding
+		@updateBindings()
+
+	removeBinding: (binding) ->
+		@socketBindings = _.pull @socketBindings, binding
+		@updateBindings()
+
+	updateBindings: ->
+		controller = this
+		@d3bindings = @field.select('g.bindings').selectAll('g.binding').data(@socketBindings)
+		bindings = @d3bindings.enter().append('g')
+			.attr
+				class: 'binding'
+			.each (d, i) ->
+				nodes = []
+				links = []
+				for binding in controller.socketBindings
+					nodes.push binding.source
+					nodes.push binding.target
+					links.push binding
+				# controller.interProcessForce.nodes nodes
+				# controller.interProcessForce.links links
+
+		bindings.append('circle')
+			.attr
+				class: 'binding-circle'
+				r: (d) -> d.radius
+
+
 	updateProcesses: ->
 		controller = this
 		nodes = @field.selectAll('g.process')
 			.data(@processNodes).enter().append('g')
 			.attr
 				class: 'process'
-				# transform: dataTranslate
 
 		socketGroups = nodes.append('g')
 			.attr
@@ -241,6 +288,9 @@ class GraphController
 			.on 'dragend', (socket) ->
 				controller.currentSocketDrag = null
 				d3.selectAll('.socket').each (s) ->
+					if socket isnt s and Math.abs(socket.x - s.x) < 100 and Math.abs(socket.y - s.y) < 100
+						console.log 'dragged scket', socket
+						controller.addBinding new SocketBinding socket, s
 					s.isPotentialMate = false
 				socket.isDragging = false
 				socket.fixed = false
