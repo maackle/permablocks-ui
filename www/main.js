@@ -490,7 +490,6 @@
         var _ref, _ref1;
         return (_ref = b.source, __indexOf.call(ends, _ref) >= 0) || (_ref1 = b.target, __indexOf.call(ends, _ref1) >= 0);
       });
-      console.log(dupe, bespoke);
       if (!dupe && !bespoke) {
         this.allBindings.push(binding);
         return true;
@@ -689,7 +688,7 @@
       }).on('dragend', function(socket) {
         controller.currentSocketDrag = null;
         d3.selectAll('.socket').each(function(s) {
-          if (socket !== s && Math.abs(socket.x - s.x) < 100 && Math.abs(socket.y - s.y) < 100) {
+          if (socket !== s && circleIntersection(socket, s)) {
             if (controller.addBinding(new SocketBinding(socket, s))) {
               controller.updateBindings();
             }

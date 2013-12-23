@@ -159,7 +159,6 @@ class GraphController
 			b.source in ends and b.target in ends
 		bespoke = _.some @allBindings, (b) ->
 			b.source in ends or b.target in ends
-		console.log dupe, bespoke
 		if not dupe and not bespoke
 			@allBindings.push binding
 			true
@@ -325,7 +324,7 @@ class GraphController
 			.on 'dragend', (socket) ->
 				controller.currentSocketDrag = null
 				d3.selectAll('.socket').each (s) ->
-					if socket isnt s and Math.abs(socket.x - s.x) < 100 and Math.abs(socket.y - s.y) < 100
+					if socket isnt s and circleIntersection(socket, s)
 						if controller.addBinding new SocketBinding socket, s
 							controller.updateBindings()
 					s.isPotentialMate = false
