@@ -19,10 +19,10 @@ $ ->
 		name: "Water"
 
 	co2 = new Substance
-		name: "Carbon \nDioxide \n(CO2)"
+		name: "CO2"
 
 	oxygen = new Substance
-		name: "Oxygen (O2)"
+		name: "O2"
 
 	hydroponicBed = new Process
 		name: "Hydroponic Bed"
@@ -30,7 +30,7 @@ $ ->
 		outputs: [veggies, biomass, oxygen, water]
 
 	tilapiaTank = new Process
-		name: "Tilapia Tank"
+		name: "Fish Tank"
 		inputs: [light, oxygen, water]
 		outputs: [tilapia, co2, water]
 

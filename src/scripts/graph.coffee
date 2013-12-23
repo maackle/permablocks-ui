@@ -4,9 +4,8 @@ class GraphController
 	currentSidebarDragProcess: null
 	currentSocketDrag: null
 
-	force: null
-	forceNodes: null
-	forceLinks: null
+	socketForce: null
+	bindingForce: null
 	allProcesses: null
 	allBindings: null
 
@@ -23,27 +22,51 @@ class GraphController
 		@renderSidebar()
 		@bindEvents()
 		
-		{charge, linkDistance, linkStrength, length} = Settings.Force.Process
-		@force = d3.layout.force()
+		{charge, linkDistance, linkStrength, length} = Settings.Force.Socket
+		@socketForce = d3.layout.force()
 			.charge(charge)
-			.linkDistance(linkDistance)
-			.linkStrength(linkStrength)
-			.size([length, length])
+			.gravity(0)
+			.nodes([])
+			.links([])
+			.linkDistance(linkDistance)	
+			.linkStrength(linkStrength)	
+		@bindingForce = d3.layout.force()
+			.charge(Settings.Force.Binding.charge)
+			.linkStrength(Settings.Force.Binding.linkStrength)
 			.gravity(0)
 			.nodes([])
 			.links([])
 
-		@force.on 'tick', @onTick
+		@bindingForce.linkDistance (d, i) ->
+			if not (d instanceof SocketBinding)
+				console.error d
+			d.radius() * 2
 
-		@force.start()
-		# for i in [0..Settings.warmStartIterations]
-		# 	@force.tick()
+		@socketForce.on 'tick', @socketTick
+		@bindingForce.on 'tick', @bindingTick
+	
+	bindingTick: (e) =>
+
+		bindings = d3.selectAll('.binding')
+
+		bindings.each (s, i) ->
+			a = s.source
+			b = s.target
+			mean =
+				x: (a.x + b.x) / 2
+				y: (a.y + b.y) / 2
+			dist = Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2))
+			s.x = mean.x
+			s.y = mean.y
+			d3.select(this).select("circle").attr
+				cx: s.x
+				cy: s.y
+				r: s.radius()
 		
-	onTick: (e) =>
+	socketTick: (e) =>
 
 		processes = d3.selectAll('.process')
 		sockets = d3.selectAll('.socket')
-		bindings = d3.selectAll('.binding')
 		links = d3.selectAll('.process-socket-link')
 
 		sockets.each (d, i) ->
@@ -76,20 +99,6 @@ class GraphController
 				y2: d.target.y - Math.sin(angle) * (d.target.radius + 3 * strokeWidth)
 
 
-		bindings.each (s, i) ->
-			a = s.source
-			b = s.target
-			mean =
-				x: (a.x + b.x) / 2
-				y: (a.y + b.y) / 2
-			dist = Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2))
-			s.x = mean.x
-			s.y = mean.y
-			s.radius = dist/2
-			d3.select(this).select("circle").attr
-				cx: s.x
-				cy: s.y
-				r: s.radius
 
 
 	bindEvents: ->
@@ -144,28 +153,44 @@ class GraphController
 							if close
 								other.attractTo socket
 
+	addBinding: (binding) ->
+		ends = [binding.source, binding.target]
+		dupe = _.some @allBindings, (b) ->
+			b.source in ends and b.target in ends
+		bespoke = _.some @allBindings, (b) ->
+			b.source in ends or b.target in ends
+		console.log dupe, bespoke
+		if not dupe and not bespoke
+			@allBindings.push binding
+			true
+		else
+			false
+
 	updateBindings: ->
 		controller = this
 		@d3bindings = @field.select('g.bindings').selectAll('g.binding').data(@allBindings)
+		nodes = controller.bindingForce.nodes()
+		links = controller.bindingForce.links()
+
 		bindings = @d3bindings.enter().append('g')
 			.attr
 				class: 'binding'
-			.each (d, i) ->
-				nodes = controller.force.nodes()
-				links = controller.force.links()
-				for binding in controller.allBindings
-					nodes.push binding.source
-					nodes.push binding.target
-					links.push binding
-				controller.force.nodes nodes
-				controller.force.links links
+
+		for binding in @allBindings
+			# nodes.push binding.source
+			# nodes.push binding.target
+			nodes.push binding
+			links.push binding
+
+		controller.bindingForce.nodes nodes
+		controller.bindingForce.links links
 
 		bindings.append('circle')
 			.attr
 				class: 'binding-circle'
-				r: (d) -> d.radius
+				r: (d) -> d.radius()
 		
-		@force.start()
+		@bindingForce.start()
 
 
 	updateProcesses: ->
@@ -197,8 +222,8 @@ class GraphController
 				y: (d) -> d.y
 			.text (d) -> d.process.name
 
-		forceNodes = @force.nodes()
-		forceLinks = @force.links()
+		forceNodes = @socketForce.nodes()
+		forceLinks = @socketForce.links()
 
 		socketGroups.each (process, i) ->
 			g = d3.select(this)
@@ -253,9 +278,10 @@ class GraphController
 
 			setInterval controller.socketUpdateCallback(sockets), Settings.updateDelayMs
 
-		@force.nodes forceNodes
-		@force.links forceLinks
-		@force.start()
+		@socketForce.nodes forceNodes
+		@socketForce.links forceLinks
+		@socketForce.start()
+		@bindingForce.resume()
 
 	processDragging: ->
 		controller = this
@@ -274,7 +300,8 @@ class GraphController
 				label.attr
 					x: (d) -> x
 					y: (d) -> y
-				controller.force.resume()
+				controller.socketForce.resume()
+				controller.bindingForce.resume()
 
 	socketDragging: ->
 		controller = this
@@ -283,12 +310,13 @@ class GraphController
 				{x, y} = d3.event
 				socket.px = x
 				socket.py = y
-				controller.force.resume()
 				node = d3.select(this)
 				handle = node.select('.socket-handle')
 				handle.attr
 					cx: x
 					cy: y
+				controller.socketForce.resume()
+				controller.bindingForce.resume()
 			.on 'dragstart', (socket) ->
 				controller.currentSocketDrag = socket
 				socket.isDragging = true
@@ -298,8 +326,8 @@ class GraphController
 				controller.currentSocketDrag = null
 				d3.selectAll('.socket').each (s) ->
 					if socket isnt s and Math.abs(socket.x - s.x) < 100 and Math.abs(socket.y - s.y) < 100
-						controller.allBindings.push new SocketBinding socket, s
-						controller.updateBindings()
+						if controller.addBinding new SocketBinding socket, s
+							controller.updateBindings()
 					s.isPotentialMate = false
 				socket.isDragging = false
 				socket.fixed = false

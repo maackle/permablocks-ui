@@ -1,11 +1,14 @@
 
 Settings = 
 	Force:
-		Process:
-			charge: -300
+		Socket:
+			charge: -500
 			linkDistance: 200
 			linkStrength: 0.1
 			length: 600
+		Binding:
+			charge: -100
+			linkStrength: 5
 
 	arrowheadLength: 16
 	processCircleRadius: 50

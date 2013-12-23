@@ -1,4 +1,10 @@
 
+circleIntersection = (a, b) ->
+	v = new Vec a
+	v.sub new Vec b
+	dist = v.length()
+	return dist < (a.radius + b.radius)
+
 class Vec
 
 	x: 0

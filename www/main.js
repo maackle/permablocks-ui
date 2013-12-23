@@ -1,14 +1,19 @@
 (function() {
-  var GraphController, NodeView, Process, ProcessNode, Settings, Socket, SocketBinding, Substance, Vec,
-    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+  var GraphController, NodeView, Process, ProcessNode, Settings, Socket, SocketBinding, Substance, Vec, circleIntersection,
+    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
+    __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
   Settings = {
     Force: {
-      Process: {
-        charge: -300,
+      Socket: {
+        charge: -500,
         linkDistance: 200,
         linkStrength: 0.1,
         length: 600
+      },
+      Binding: {
+        charge: -100,
+        linkStrength: 5
       }
     },
     arrowheadLength: 16,
@@ -19,6 +24,14 @@
     sniffDistance: 300,
     updateDelayMs: 50,
     warmStartIterations: 50
+  };
+
+  circleIntersection = function(a, b) {
+    var dist, v;
+    v = new Vec(a);
+    v.sub(new Vec(b));
+    dist = v.length();
+    return dist < (a.radius + b.radius);
   };
 
   Vec = (function() {
@@ -198,14 +211,14 @@
 
     SocketBinding.prototype.target = null;
 
-    SocketBinding.prototype.weight = 10;
-
-    SocketBinding.prototype.radius = Settings.bindingCircleRadius;
-
     function SocketBinding(source, target) {
       this.source = source;
       this.target = target;
     }
+
+    SocketBinding.prototype.radius = function() {
+      return (this.source.radius + this.target.radius) / 2 * 1.5;
+    };
 
     return SocketBinding;
 
@@ -277,18 +290,17 @@
 
     GraphController.prototype.currentSocketDrag = null;
 
-    GraphController.prototype.force = null;
+    GraphController.prototype.socketForce = null;
 
-    GraphController.prototype.forceNodes = null;
-
-    GraphController.prototype.forceLinks = null;
+    GraphController.prototype.bindingForce = null;
 
     GraphController.prototype.allProcesses = null;
 
     GraphController.prototype.allBindings = null;
 
     function GraphController() {
-      this.onTick = __bind(this.onTick, this);
+      this.socketTick = __bind(this.socketTick, this);
+      this.bindingTick = __bind(this.bindingTick, this);
       this.allProcesses = [];
       this.allBindings = [];
     }
@@ -302,17 +314,45 @@
       this.$sidebar = $('#sidebar');
       this.renderSidebar();
       this.bindEvents();
-      _ref = Settings.Force.Process, charge = _ref.charge, linkDistance = _ref.linkDistance, linkStrength = _ref.linkStrength, length = _ref.length;
-      this.force = d3.layout.force().charge(charge).linkDistance(linkDistance).linkStrength(linkStrength).size([length, length]).gravity(0).nodes([]).links([]);
-      this.force.on('tick', this.onTick);
-      return this.force.start();
+      _ref = Settings.Force.Socket, charge = _ref.charge, linkDistance = _ref.linkDistance, linkStrength = _ref.linkStrength, length = _ref.length;
+      this.socketForce = d3.layout.force().charge(charge).gravity(0).nodes([]).links([]).linkDistance(linkDistance).linkStrength(linkStrength);
+      this.bindingForce = d3.layout.force().charge(Settings.Force.Binding.charge).linkStrength(Settings.Force.Binding.linkStrength).gravity(0).nodes([]).links([]);
+      this.bindingForce.linkDistance(function(d, i) {
+        if (!(d instanceof SocketBinding)) {
+          console.error(d);
+        }
+        return d.radius() * 2;
+      });
+      this.socketForce.on('tick', this.socketTick);
+      return this.bindingForce.on('tick', this.bindingTick);
     };
 
-    GraphController.prototype.onTick = function(e) {
-      var bindings, links, processes, sockets;
+    GraphController.prototype.bindingTick = function(e) {
+      var bindings;
+      bindings = d3.selectAll('.binding');
+      return bindings.each(function(s, i) {
+        var a, b, dist, mean;
+        a = s.source;
+        b = s.target;
+        mean = {
+          x: (a.x + b.x) / 2,
+          y: (a.y + b.y) / 2
+        };
+        dist = Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
+        s.x = mean.x;
+        s.y = mean.y;
+        return d3.select(this).select("circle").attr({
+          cx: s.x,
+          cy: s.y,
+          r: s.radius()
+        });
+      });
+    };
+
+    GraphController.prototype.socketTick = function(e) {
+      var links, processes, sockets;
       processes = d3.selectAll('.process');
       sockets = d3.selectAll('.socket');
-      bindings = d3.selectAll('.binding');
       links = d3.selectAll('.process-socket-link');
       sockets.each(function(d, i) {
         if (!d.isDragging) {
@@ -336,7 +376,7 @@
           return d.y;
         }
       });
-      links.each(function(d, i) {
+      return links.each(function(d, i) {
         var angle, diff, el, strokeWidth;
         diff = {
           x: d.target.x - d.source.x,
@@ -350,24 +390,6 @@
           y1: d.source.y + Math.sin(angle) * d.source.radius,
           x2: d.target.x - Math.cos(angle) * (d.target.radius + 3 * strokeWidth),
           y2: d.target.y - Math.sin(angle) * (d.target.radius + 3 * strokeWidth)
-        });
-      });
-      return bindings.each(function(s, i) {
-        var a, b, dist, mean;
-        a = s.source;
-        b = s.target;
-        mean = {
-          x: (a.x + b.x) / 2,
-          y: (a.y + b.y) / 2
-        };
-        dist = Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
-        s.x = mean.x;
-        s.y = mean.y;
-        s.radius = dist / 2;
-        return d3.select(this).select("circle").attr({
-          cx: s.x,
-          cy: s.y,
-          r: s.radius
         });
       });
     };
@@ -457,33 +479,50 @@
       };
     };
 
+    GraphController.prototype.addBinding = function(binding) {
+      var bespoke, dupe, ends;
+      ends = [binding.source, binding.target];
+      dupe = _.some(this.allBindings, function(b) {
+        var _ref, _ref1;
+        return (_ref = b.source, __indexOf.call(ends, _ref) >= 0) && (_ref1 = b.target, __indexOf.call(ends, _ref1) >= 0);
+      });
+      bespoke = _.some(this.allBindings, function(b) {
+        var _ref, _ref1;
+        return (_ref = b.source, __indexOf.call(ends, _ref) >= 0) || (_ref1 = b.target, __indexOf.call(ends, _ref1) >= 0);
+      });
+      console.log(dupe, bespoke);
+      if (!dupe && !bespoke) {
+        this.allBindings.push(binding);
+        return true;
+      } else {
+        return false;
+      }
+    };
+
     GraphController.prototype.updateBindings = function() {
-      var bindings, controller;
+      var binding, bindings, controller, links, nodes, _i, _len, _ref;
       controller = this;
       this.d3bindings = this.field.select('g.bindings').selectAll('g.binding').data(this.allBindings);
+      nodes = controller.bindingForce.nodes();
+      links = controller.bindingForce.links();
       bindings = this.d3bindings.enter().append('g').attr({
         "class": 'binding'
-      }).each(function(d, i) {
-        var binding, links, nodes, _i, _len, _ref;
-        nodes = controller.force.nodes();
-        links = controller.force.links();
-        _ref = controller.allBindings;
-        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          binding = _ref[_i];
-          nodes.push(binding.source);
-          nodes.push(binding.target);
-          links.push(binding);
-        }
-        controller.force.nodes(nodes);
-        return controller.force.links(links);
       });
+      _ref = this.allBindings;
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        binding = _ref[_i];
+        nodes.push(binding);
+        links.push(binding);
+      }
+      controller.bindingForce.nodes(nodes);
+      controller.bindingForce.links(links);
       bindings.append('circle').attr({
         "class": 'binding-circle',
         r: function(d) {
-          return d.radius;
+          return d.radius();
         }
       });
-      return this.force.start();
+      return this.bindingForce.start();
     };
 
     GraphController.prototype.updateProcesses = function() {
@@ -519,8 +558,8 @@
       }).text(function(d) {
         return d.process.name;
       });
-      forceNodes = this.force.nodes();
-      forceLinks = this.force.links();
+      forceNodes = this.socketForce.nodes();
+      forceLinks = this.socketForce.links();
       socketGroups.each(function(process, i) {
         var g, links, socketLinks, sockets, sox;
         g = d3.select(this);
@@ -583,9 +622,10 @@
         });
         return setInterval(controller.socketUpdateCallback(sockets), Settings.updateDelayMs);
       });
-      this.force.nodes(forceNodes);
-      this.force.links(forceLinks);
-      return this.force.start();
+      this.socketForce.nodes(forceNodes);
+      this.socketForce.links(forceLinks);
+      this.socketForce.start();
+      return this.bindingForce.resume();
     };
 
     GraphController.prototype.processDragging = function() {
@@ -618,7 +658,8 @@
             return y;
           }
         });
-        return controller.force.resume();
+        controller.socketForce.resume();
+        return controller.bindingForce.resume();
       });
     };
 
@@ -632,13 +673,14 @@
         _ref = d3.event, x = _ref.x, y = _ref.y;
         socket.px = x;
         socket.py = y;
-        controller.force.resume();
         node = d3.select(this);
         handle = node.select('.socket-handle');
-        return handle.attr({
+        handle.attr({
           cx: x,
           cy: y
         });
+        controller.socketForce.resume();
+        return controller.bindingForce.resume();
       }).on('dragstart', function(socket) {
         controller.currentSocketDrag = socket;
         socket.isDragging = true;
@@ -648,8 +690,9 @@
         controller.currentSocketDrag = null;
         d3.selectAll('.socket').each(function(s) {
           if (socket !== s && Math.abs(socket.x - s.x) < 100 && Math.abs(socket.y - s.y) < 100) {
-            controller.allBindings.push(new SocketBinding(socket, s));
-            controller.updateBindings();
+            if (controller.addBinding(new SocketBinding(socket, s))) {
+              controller.updateBindings();
+            }
           }
           return s.isPotentialMate = false;
         });
@@ -694,10 +737,10 @@
       name: "Water"
     });
     co2 = new Substance({
-      name: "Carbon \nDioxide \n(CO2)"
+      name: "CO2"
     });
     oxygen = new Substance({
-      name: "Oxygen (O2)"
+      name: "O2"
     });
     hydroponicBed = new Process({
       name: "Hydroponic Bed",
@@ -705,7 +748,7 @@
       outputs: [veggies, biomass, oxygen, water]
     });
     tilapiaTank = new Process({
-      name: "Tilapia Tank",
+      name: "Fish Tank",
       inputs: [light, oxygen, water],
       outputs: [tilapia, co2, water]
     });

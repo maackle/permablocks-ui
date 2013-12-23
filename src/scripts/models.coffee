@@ -68,10 +68,10 @@ class SocketBinding
 
 	source: null
 	target: null
-	weight: 10
-	radius: Settings.bindingCircleRadius
 
 	constructor: (@source, @target) ->
+
+	radius: -> (@source.radius + @target.radius) / 2 * 1.5
 
 class ProcessNode
 
