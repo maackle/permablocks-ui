@@ -30,6 +30,7 @@ module.exports = (grunt) ->
                         "<%= config.app %>/scripts/settings.coffee",
                         "<%= config.app %>/scripts/util.coffee",
                         "<%= config.app %>/scripts/models.coffee",
+                        "<%= config.app %>/scripts/data.coffee",
                         "<%= config.app %>/scripts/views.coffee",
                         "<%= config.app %>/scripts/graph.coffee",
                         "<%= config.app %>/scripts/main.coffee",

@@ -1,5 +1,5 @@
 (function() {
-  var GraphController, NodeView, Process, ProcessNode, Settings, Socket, SocketBinding, Substance, Vec, circleIntersection,
+  var GraphController, NodeView, Process, ProcessNode, Settings, Socket, SocketBinding, Substance, Vec, circleIntersection, data, processDefs, substanceDefs,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -7,7 +7,7 @@
     Force: {
       Socket: {
         charge: -500,
-        linkDistance: 200,
+        linkDistance: 500,
         linkStrength: 0.1,
         length: 600
       },
@@ -20,8 +20,8 @@
     processCircleRadius: 50,
     socketCircleRadius: 35,
     bindingCircleRadius: 70,
-    processGravity: 0.1,
-    sniffDistance: 300,
+    processGravity: 0.2,
+    sniffDistance: 200,
     updateDelayMs: 50,
     warmStartIterations: 50
   };
@@ -262,6 +262,51 @@
     return ProcessNode;
 
   })();
+
+  substanceDefs = {
+    light: {
+      name: "Light"
+    },
+    tilapia: {
+      name: "Tilapia"
+    },
+    food: {
+      name: "Food"
+    },
+    veggies: {
+      name: "Veggies"
+    },
+    biomass: {
+      name: "Biomass"
+    },
+    water: {
+      name: "Water"
+    },
+    co2: {
+      name: "CO2"
+    },
+    oxygen: {
+      name: "O2"
+    }
+  };
+
+  processDefs = {
+    hydroponic_bed: {
+      name: "Hydroponic Bed",
+      inputs: ["light", "co2", "water"],
+      outputs: ["veggies", "biomass", "oxygen", "water"]
+    },
+    fish_tank: {
+      name: "Fish Tank",
+      inputs: ["light", "oxygen", "water"],
+      outputs: ["tilapia", "co2", "water"]
+    }
+  };
+
+  data = {
+    substanceDefs: substanceDefs,
+    processDefs: processDefs
+  };
 
   NodeView = (function() {
     NodeView.prototype.$el = null;
@@ -716,44 +761,50 @@
   })();
 
   $(function() {
-    var biomass, co2, food, graph, hydroponicBed, light, oxygen, tilapia, tilapiaTank, veggies, water;
-    light = new Substance({
-      name: "Light"
-    });
-    tilapia = new Substance({
-      name: "Tilapia"
-    });
-    food = new Substance({
-      name: "Food"
-    });
-    veggies = new Substance({
-      name: "Veggies"
-    });
-    biomass = new Substance({
-      name: "Biomass"
-    });
-    water = new Substance({
-      name: "Water"
-    });
-    co2 = new Substance({
-      name: "CO2"
-    });
-    oxygen = new Substance({
-      name: "O2"
-    });
-    hydroponicBed = new Process({
-      name: "Hydroponic Bed",
-      inputs: [light, co2, water],
-      outputs: [veggies, biomass, oxygen, water]
-    });
-    tilapiaTank = new Process({
-      name: "Fish Tank",
-      inputs: [light, oxygen, water],
-      outputs: [tilapia, co2, water]
-    });
+    var def, graph, k, name, p, processes, slug, substances, _ref, _ref1;
+    substances = {};
+    processes = {};
+    _ref = data.substanceDefs;
+    for (slug in _ref) {
+      def = _ref[slug];
+      substances[slug] = new Substance(def);
+    }
+    _ref1 = data.processDefs;
+    for (slug in _ref1) {
+      def = _ref1[slug];
+      def.inputs = (function() {
+        var _i, _len, _ref2, _results;
+        _ref2 = def.inputs;
+        _results = [];
+        for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+          name = _ref2[_i];
+          _results.push(substances[name]);
+        }
+        return _results;
+      })();
+      def.outputs = (function() {
+        var _i, _len, _ref2, _results;
+        _ref2 = def.outputs;
+        _results = [];
+        for (_i = 0, _len = _ref2.length; _i < _len; _i++) {
+          name = _ref2[_i];
+          _results.push(substances[name]);
+        }
+        return _results;
+      })();
+      processes[slug] = new Process(def);
+    }
     graph = new GraphController;
     return graph.initialize({
-      processList: [tilapiaTank, hydroponicBed]
+      processList: (function() {
+        var _results;
+        _results = [];
+        for (k in processes) {
+          p = processes[k];
+          _results.push(p);
+        }
+        return _results;
+      })()
     });
   });
 
