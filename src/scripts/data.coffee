@@ -20,12 +20,29 @@ substanceDefs =
 processDefs = 
 	hydroponic_bed:
 		name: "Hydroponic Bed"
-		inputs: ["light", "co2", "water"]
-		outputs: ["veggies", "biomass", "oxygen", "water"]
+		inputs: [ 
+			"light"
+			"co2"
+			"water"
+		]
+		outputs: [
+			"veggies"
+			"biomass"
+			"oxygen"
+			"water"
+		]
 	fish_tank:
 		name: "Fish Tank"
-		inputs: ["light", "oxygen", "water"]
-		outputs: ["tilapia", "co2", "water"]
+		inputs: [
+			"light"
+			"oxygen"
+			"water"
+		]
+		outputs: [
+			"tilapia"
+			"co2"
+			"water"
+		]
 
 data =
 	substanceDefs: substanceDefs
