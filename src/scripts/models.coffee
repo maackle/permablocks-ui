@@ -40,18 +40,22 @@ class Socket
 
 	bindTo: (socket) ->
 		console.assert this.canBindTo socket
-		this.binding = socket
-		socket.binding = this
-		if socket.kind is 'input'
+		binding = if socket.kind is 'input'
 			new SocketBinding this, socket
 		else
 			new SocketBinding socket, this
+		this.binding = binding
+		socket.binding = binding
 
+	partner: ->
+		if @binding
+			if this is @binding.source then @binding.target else @binding.source
 
 	unbind: ->
 		if this.binding?
-			this.binding.binding = null
-			this.binding = null
+			{source, target} = this.binding
+			source.binding = null
+			target.binding = null
 
 	attractTo: (socket) ->
 		diff = new Vec socket
@@ -69,9 +73,11 @@ class SocketBinding
 	source: null
 	target: null
 
+	weight: 1
+
 	constructor: (@source, @target) ->
 
-	radius: -> (@source.radius + @target.radius) / 2 * 1.5
+	radius: -> (@source.radius + @target.radius) / 2 * Settings.bindingCircleRadiusFactor
 
 class ProcessNode
 

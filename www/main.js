@@ -12,18 +12,33 @@
         length: 600
       },
       Binding: {
-        charge: -100,
+        charge: -300,
         linkStrength: 5
       }
     },
     arrowheadLength: 16,
     processCircleRadius: 50,
     socketCircleRadius: 35,
-    bindingCircleRadius: 70,
+    bindingCircleRadiusFactor: 1.5,
+    bindingDecouplingRadiusFactor: 1.5,
     processGravity: 0.2,
     sniffDistance: 200,
+    decouplingDistance: 200,
     updateDelayMs: 50,
     warmStartIterations: 50
+  };
+
+  Array.prototype.remove = function() {
+    var L, a, ax, what;
+    a = arguments;
+    L = a.length;
+    while (L && this.length) {
+      what = a[--L];
+      while ((ax = this.indexOf(what)) !== -1) {
+        this.splice(ax, 1);
+      }
+    }
+    return this;
   };
 
   circleIntersection = function(a, b) {
@@ -50,6 +65,13 @@
       x = Math.cos(t) * r;
       y = Math.sin(t) * r;
       return new Vec(x, y);
+    };
+
+    Vec.distance = function(a, b) {
+      var x, y;
+      x = a.x - b.x;
+      y = a.y - b.y;
+      return Math.sqrt(x * x + y * y);
     };
 
     function Vec() {
@@ -173,20 +195,29 @@
     };
 
     Socket.prototype.bindTo = function(socket) {
+      var binding;
       console.assert(this.canBindTo(socket));
-      this.binding = socket;
-      socket.binding = this;
-      if (socket.kind === 'input') {
-        return new SocketBinding(this, socket);
-      } else {
-        return new SocketBinding(socket, this);
+      binding = socket.kind === 'input' ? new SocketBinding(this, socket) : new SocketBinding(socket, this);
+      this.binding = binding;
+      return socket.binding = binding;
+    };
+
+    Socket.prototype.partner = function() {
+      if (this.binding) {
+        if (this === this.binding.source) {
+          return this.binding.target;
+        } else {
+          return this.binding.source;
+        }
       }
     };
 
     Socket.prototype.unbind = function() {
+      var source, target, _ref;
       if (this.binding != null) {
-        this.binding.binding = null;
-        return this.binding = null;
+        _ref = this.binding, source = _ref.source, target = _ref.target;
+        source.binding = null;
+        return target.binding = null;
       }
     };
 
@@ -211,13 +242,15 @@
 
     SocketBinding.prototype.target = null;
 
+    SocketBinding.prototype.weight = 1;
+
     function SocketBinding(source, target) {
       this.source = source;
       this.target = target;
     }
 
     SocketBinding.prototype.radius = function() {
-      return (this.source.radius + this.target.radius) / 2 * 1.5;
+      return (this.source.radius + this.target.radius) / 2 * Settings.bindingCircleRadiusFactor;
     };
 
     return SocketBinding;
@@ -375,21 +408,21 @@
     GraphController.prototype.bindingTick = function(e) {
       var bindings;
       bindings = d3.selectAll('.binding');
-      return bindings.each(function(s, i) {
+      return bindings.each(function(binding, i) {
         var a, b, dist, mean;
-        a = s.source;
-        b = s.target;
+        a = binding.source;
+        b = binding.target;
         mean = {
           x: (a.x + b.x) / 2,
           y: (a.y + b.y) / 2
         };
         dist = Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2));
-        s.x = mean.x;
-        s.y = mean.y;
+        binding.x = mean.x;
+        binding.y = mean.y;
         return d3.select(this).select("circle").attr({
-          cx: s.x,
-          cy: s.y,
-          r: s.radius()
+          cx: binding.x,
+          cy: binding.y,
+          r: binding.radius()
         });
       });
     };
@@ -525,8 +558,9 @@
     };
 
     GraphController.prototype.addBinding = function(binding) {
-      var bespoke, dupe, ends;
-      ends = [binding.source, binding.target];
+      var bespoke, dupe, ends, source, target;
+      source = binding.source, target = binding.target;
+      ends = [source, target];
       dupe = _.some(this.allBindings, function(b) {
         var _ref, _ref1;
         return (_ref = b.source, __indexOf.call(ends, _ref) >= 0) && (_ref1 = b.target, __indexOf.call(ends, _ref1) >= 0);
@@ -543,15 +577,20 @@
       }
     };
 
+    GraphController.prototype.removeBinding = function(binding) {
+      return this.allBindings.remove(binding);
+    };
+
     GraphController.prototype.updateBindings = function() {
       var binding, bindings, controller, links, nodes, _i, _len, _ref;
       controller = this;
       this.d3bindings = this.field.select('g.bindings').selectAll('g.binding').data(this.allBindings);
-      nodes = controller.bindingForce.nodes();
-      links = controller.bindingForce.links();
+      nodes = [];
+      links = [];
       bindings = this.d3bindings.enter().append('g').attr({
         "class": 'binding'
       });
+      this.d3bindings.exit().remove();
       _ref = this.allBindings;
       for (_i = 0, _len = _ref.length; _i < _len; _i++) {
         binding = _ref[_i];
@@ -561,7 +600,7 @@
       controller.bindingForce.nodes(nodes);
       controller.bindingForce.links(links);
       bindings.append('circle').attr({
-        "class": 'binding-circle',
+        "class": 'binding-circle binding-handle',
         r: function(d) {
           return d.radius();
         }
@@ -729,19 +768,34 @@
         controller.currentSocketDrag = socket;
         socket.isDragging = true;
         socket.fixed = true;
+        if (socket.binding) {
+          socket.partner().fixed = true;
+        }
         return d3.event.sourceEvent.stopPropagation();
       }).on('dragend', function(socket) {
+        var source, target, _ref;
         controller.currentSocketDrag = null;
         d3.selectAll('.socket').each(function(s) {
+          var binding;
           if (socket !== s && circleIntersection(socket, s)) {
-            if (controller.addBinding(new SocketBinding(socket, s))) {
+            binding = socket.bindTo(s);
+            if (controller.addBinding(binding)) {
               controller.updateBindings();
             }
           }
           return s.isPotentialMate = false;
         });
         socket.isDragging = false;
-        return socket.fixed = false;
+        socket.fixed = false;
+        if (socket.binding) {
+          _ref = socket.binding, source = _ref.source, target = _ref.target;
+          socket.partner().fixed = false;
+          if (Vec.distance(source, target) > 2 * socket.binding.radius() * Settings.bindingDecouplingRadiusFactor) {
+            controller.removeBinding(socket.binding);
+            controller.updateBindings();
+            return socket.unbind();
+          }
+        }
       });
     };
 

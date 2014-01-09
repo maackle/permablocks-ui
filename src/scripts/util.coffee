@@ -1,4 +1,13 @@
 
+Array.prototype.remove = ->
+	a = arguments
+	L = a.length
+	while (L && this.length)
+		what = a[--L]
+		while ((ax = this.indexOf(what)) != -1)
+			this.splice(ax, 1)
+	return this
+
 circleIntersection = (a, b) ->
 	v = new Vec a
 	v.sub new Vec b
@@ -18,6 +27,11 @@ class Vec
 		x = Math.cos(t) * r
 		y = Math.sin(t) * r
 		new Vec x, y
+
+	@distance: (a,b) ->
+		x = (a.x - b.x)
+		y = (a.y - b.y)
+		Math.sqrt(x*x + y*y)
 
 	constructor: ->
 		if arguments.length == 1

@@ -49,19 +49,19 @@ class GraphController
 
 		bindings = d3.selectAll('.binding')
 
-		bindings.each (s, i) ->
-			a = s.source
-			b = s.target
+		bindings.each (binding, i) ->
+			a = binding.source
+			b = binding.target
 			mean =
 				x: (a.x + b.x) / 2
 				y: (a.y + b.y) / 2
 			dist = Math.sqrt(Math.pow(a.x - b.x, 2) + Math.pow(a.y - b.y, 2))
-			s.x = mean.x
-			s.y = mean.y
+			binding.x = mean.x
+			binding.y = mean.y
 			d3.select(this).select("circle").attr
-				cx: s.x
-				cy: s.y
-				r: s.radius()
+				cx: binding.x
+				cy: binding.y
+				r: binding.radius()
 		
 	socketTick: (e) =>
 
@@ -154,7 +154,8 @@ class GraphController
 								other.attractTo socket
 
 	addBinding: (binding) ->
-		ends = [binding.source, binding.target]
+		{source, target} = binding
+		ends = [source, target]
 		dupe = _.some @allBindings, (b) ->
 			b.source in ends and b.target in ends
 		bespoke = _.some @allBindings, (b) ->
@@ -165,15 +166,21 @@ class GraphController
 		else
 			false
 
+	removeBinding: (binding) ->
+		@allBindings.remove(binding)
+
 	updateBindings: ->
 		controller = this
 		@d3bindings = @field.select('g.bindings').selectAll('g.binding').data(@allBindings)
-		nodes = controller.bindingForce.nodes()
-		links = controller.bindingForce.links()
+		nodes = []#controller.bindingForce.nodes()
+		links = []#controller.bindingForce.links()
 
 		bindings = @d3bindings.enter().append('g')
 			.attr
 				class: 'binding'
+			# .call(controller.bindingDragging())
+
+		@d3bindings.exit().remove()
 
 		for binding in @allBindings
 			# nodes.push binding.source
@@ -186,7 +193,7 @@ class GraphController
 
 		bindings.append('circle')
 			.attr
-				class: 'binding-circle'
+				class: 'binding-circle binding-handle'
 				r: (d) -> d.radius()
 		
 		@bindingForce.start()
@@ -320,17 +327,42 @@ class GraphController
 				controller.currentSocketDrag = socket
 				socket.isDragging = true
 				socket.fixed = true
+				if socket.binding
+					socket.partner().fixed = true
+					
 				d3.event.sourceEvent.stopPropagation()
 			.on 'dragend', (socket) ->
 				controller.currentSocketDrag = null
 				d3.selectAll('.socket').each (s) ->
 					if socket isnt s and circleIntersection(socket, s)
-						if controller.addBinding new SocketBinding socket, s
+						binding = socket.bindTo(s)
+						if controller.addBinding(binding)
 							controller.updateBindings()
 					s.isPotentialMate = false
 				socket.isDragging = false
 				socket.fixed = false
+				if socket.binding
+					{source, target} = socket.binding
+					socket.partner().fixed = false
+					if Vec.distance(source, target) > 2 * socket.binding.radius() * Settings.bindingDecouplingRadiusFactor
+						controller.removeBinding(socket.binding)
+						controller.updateBindings()
+						socket.unbind()
 
+	# bindingDragging: ->
+	# 	controller = this
+	# 	d3.behavior.drag().origin( (d) -> d )
+	# 		.on 'drag', (binding) ->
+	# 			{x, y} = d3.event
+	# 			binding.px = x
+	# 			binding.py = y
+	# 			node = d3.select(this)
+	# 			handle = node.select('.binding-handle')
+	# 			handle.attr
+	# 				cx: x
+	# 				cy: y
+	# 			controller.socketForce.resume()
+	# 			controller.bindingForce.resume()
 
 	renderSidebar: ->
 		html = ""
