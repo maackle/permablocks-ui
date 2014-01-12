@@ -1,4 +1,3 @@
-
 substanceDefs =
 	light:
 		name: "Light"
@@ -16,6 +15,11 @@ substanceDefs =
 		name: "CO2"
 	oxygen:
 		name: "O2"
+	nutrient rich water:
+		name: "Nutrient Rich Water"
+	electricity:
+		name: "Electricity"
+	
 
 processDefs = 
 	hydroponic_bed:
@@ -40,6 +44,18 @@ processDefs =
 		]
 		outputs: [
 			"tilapia"
+			"co2"
+			"water"
+		]
+	microbial_fuel_cell:
+		name: "Microbial Fuel Cell"
+		inputs: [ 
+			"nutrient rich water"
+			"oxygen"
+	
+		]
+		outputs: [
+			"electricity"
 			"co2"
 			"water"
 		]
