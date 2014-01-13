@@ -15,7 +15,7 @@ substanceDefs =
 		name: "CO2"
 	oxygen:
 		name: "O2"
-	nutrient rich water:
+	nutrient_rich_water:
 		name: "Nutrient Rich Water"
 	electricity:
 		name: "Electricity"
@@ -50,7 +50,7 @@ processDefs =
 	microbial_fuel_cell:
 		name: "Microbial Fuel Cell"
 		inputs: [ 
-			"nutrient rich water"
+			"nutrient_rich_water"
 			"oxygen"
 	
 		]
